@@ -138,3 +138,19 @@ $env:PANTHEON_ATLAS_R2_SECRET_ACCESS_KEY = "..."
 ```
 
 Only use direct R2 mode on trusted machines. Public builds should use the Worker path so write credentials are never distributed.
+
+## App Updates
+
+Pantheon Atlas checks the latest public GitHub release on startup and offers to open the newest EXE download when a newer version is available. Because the app is currently unsigned and distributed as a portable/installer build, updates are user-approved: download the new build, close Atlas, and run the new EXE or installer.
+
+To publish a tester build:
+
+```powershell
+npm version patch --no-git-tag-version
+git add package.json package-lock.json
+git commit -m "Release vX.Y.Z"
+git tag vX.Y.Z
+git push origin main --tags
+```
+
+The `Release` GitHub Actions workflow builds Windows artifacts and attaches them to the GitHub release. The in-app updater reads `https://api.github.com/repos/sh4dowf0x/pantheon-atlas/releases/latest`.

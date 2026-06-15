@@ -1,7 +1,11 @@
 {
   "name": "pantheon-atlas",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Pantheon session atlas for combat logs, encounters, loot, maps, and live observations.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sh4dowf0x/pantheon-atlas.git"
+  },
   "main": "electron/main.js",
   "type": "commonjs",
   "scripts": {

@@ -1,13 +1,19 @@
 const fs = require('node:fs');
+const https = require('node:https');
 const http = require('node:http');
 const net = require('node:net');
 const path = require('node:path');
-const { app, BrowserWindow, Menu, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, shell, dialog } = require('electron');
+const packageJson = require('../package.json');
 
 let runtime = null;
 let mainWindow = null;
 let quitting = false;
 let startingAtlas = false;
+let updateCheckInFlight = false;
+
+const UPDATE_REPO = 'sh4dowf0x/pantheon-atlas';
+const UPDATE_API_URL = `https://api.github.com/repos/${UPDATE_REPO}/releases/latest`;
 
 function findOpenPort() {
   return new Promise((resolve, reject) => {
@@ -40,6 +46,106 @@ function waitForHttp(url, timeoutMs = 15_000) {
     };
     check();
   });
+}
+
+function compareVersions(left, right) {
+  const parse = (value) => String(value || '')
+    .replace(/^v/i, '')
+    .split(/[.-]/)
+    .map((part) => Number.parseInt(part, 10))
+    .map((part) => (Number.isFinite(part) ? part : 0));
+  const a = parse(left);
+  const b = parse(right);
+  const length = Math.max(a.length, b.length, 3);
+  for (let index = 0; index < length; index += 1) {
+    const delta = (a[index] || 0) - (b[index] || 0);
+    if (delta) return delta > 0 ? 1 : -1;
+  }
+  return 0;
+}
+
+function fetchJson(url, timeoutMs = 10_000) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'User-Agent': `PantheonAtlas/${packageJson.version}`
+      }
+    }, (res) => {
+      const chunks = [];
+      res.on('data', (chunk) => chunks.push(chunk));
+      res.on('end', () => {
+        const text = Buffer.concat(chunks).toString('utf8');
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          reject(new Error(`GitHub release check failed: ${res.statusCode} ${text}`.trim()));
+          return;
+        }
+        try {
+          resolve(JSON.parse(text));
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(timeoutMs, () => req.destroy(new Error('GitHub release check timed out')));
+  });
+}
+
+function releaseAssetForPlatform(release) {
+  const assets = Array.isArray(release?.assets) ? release.assets : [];
+  return assets.find((asset) => /\.exe$/i.test(asset.name || '') && /PantheonAtlas/i.test(asset.name || ''))
+    || assets.find((asset) => /\.exe$/i.test(asset.name || ''))
+    || null;
+}
+
+async function checkForUpdates({ manual = false } = {}) {
+  if (updateCheckInFlight || process.env.PANTHEON_ATLAS_DISABLE_UPDATE_CHECK === '1') return null;
+  if (process.env.PANTHEON_ATLAS_SMOKE_TEST === '1' && !manual) return null;
+  updateCheckInFlight = true;
+  try {
+    const release = await fetchJson(UPDATE_API_URL);
+    const latestVersion = String(release.tag_name || '').replace(/^v/i, '');
+    if (!latestVersion || compareVersions(latestVersion, packageJson.version) <= 0) {
+      if (manual) {
+        await dialog.showMessageBox(mainWindow, {
+          type: 'info',
+          title: 'Pantheon Atlas Updates',
+          message: 'Pantheon Atlas is up to date.',
+          detail: `Current version: ${packageJson.version}`
+        });
+      }
+      return null;
+    }
+
+    const asset = releaseAssetForPlatform(release);
+    const releaseUrl = release.html_url || `https://github.com/${UPDATE_REPO}/releases/latest`;
+    const downloadUrl = asset?.browser_download_url || releaseUrl;
+    const result = await dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Pantheon Atlas Update Available',
+      message: `Pantheon Atlas ${latestVersion} is available.`,
+      detail: `You are running ${packageJson.version}. Download the latest build from GitHub, then close Atlas and run the new installer or portable EXE.`,
+      buttons: ['Download', 'Later'],
+      defaultId: 0,
+      cancelId: 1
+    });
+    if (result.response === 0) await shell.openExternal(downloadUrl);
+    return { latestVersion, downloadUrl };
+  } catch (error) {
+    console.error(`Update check failed: ${error.message}`);
+    if (manual) {
+      await dialog.showMessageBox(mainWindow, {
+        type: 'warning',
+        title: 'Pantheon Atlas Updates',
+        message: 'Could not check for updates.',
+        detail: error.message
+      });
+    }
+    return null;
+  } finally {
+    updateCheckInFlight = false;
+  }
 }
 
 function ensureUserConfig(userDataPath) {
@@ -283,6 +389,9 @@ function createWindow(dashboardUrl) {
   });
 
   mainWindow.loadURL(dashboardUrl);
+  mainWindow.webContents.once('did-finish-load', () => {
+    setTimeout(() => checkForUpdates().catch(() => {}), 2500);
+  });
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -333,7 +442,14 @@ async function startAtlas() {
   startingAtlas = false;
 }
 
-Menu.setApplicationMenu(null);
+Menu.setApplicationMenu(Menu.buildFromTemplate([{
+  label: 'Pantheon Atlas',
+  submenu: [
+    { label: 'Check for Updates', click: () => checkForUpdates({ manual: true }).catch(() => {}) },
+    { type: 'separator' },
+    { role: 'quit' }
+  ]
+}]));
 
 app.whenReady()
   .then(startAtlas)

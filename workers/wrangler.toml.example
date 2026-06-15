@@ -1,0 +1,14 @@
+name = "pantheon-atlas-item-upload"
+main = "item-upload-worker.js"
+compatibility_date = "2026-06-15"
+
+[[r2_buckets]]
+binding = "ITEM_BUCKET"
+bucket_name = "pantheon-item-database"
+
+[vars]
+OBJECT_PREFIX = "contributions"
+
+# Optional:
+# Set this as a Worker secret, not in this file:
+# wrangler secret put ATLAS_UPLOAD_TOKEN

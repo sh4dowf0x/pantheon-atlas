@@ -1,0 +1,58 @@
+{
+  "name": "pantheon-atlas",
+  "version": "0.1.0",
+  "description": "Pantheon session atlas for combat logs, encounters, loot, maps, and live observations.",
+  "main": "electron/main.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node --no-warnings src/app.js",
+    "electron": "electron electron/main.js",
+    "package:win": "electron-builder --win portable",
+    "dist:win": "electron-builder --win portable nsis",
+    "cleanup-db": "node --no-warnings scripts/cleanup-db.js --yes --keep-minutes 30",
+    "record-map": "node --no-warnings scripts/record-map-calibration.js",
+    "backfill-abilities": "node --no-warnings scripts/backfill-ability-registry.js",
+    "import-named-mobs": "node --no-warnings scripts/import-shalazam-named-mobs.js",
+    "test": "node --no-warnings test/parser.test.js && node --no-warnings test/addonLog.test.js && node --no-warnings test/entityScannerLog.test.js && node --no-warnings test/lootLog.test.js && node --no-warnings test/itemSync.test.js && node --no-warnings test/namedMobs.test.js && node --no-warnings test/app.test.js && node --no-warnings test/dashboard.test.js"
+  },
+  "keywords": [
+    "pantheon",
+    "atlas",
+    "combat",
+    "map",
+    "logs"
+  ],
+  "author": "",
+  "license": "ISC",
+  "build": {
+    "appId": "com.pantheonatlas.app",
+    "productName": "Pantheon Atlas",
+    "asar": true,
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "public/**/*",
+      "config.example.json",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "portable",
+        "nsis"
+      ],
+      "artifactName": "PantheonAtlas-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "devDependencies": {
+    "electron": "^42.4.0",
+    "electron-builder": "^26.15.3"
+  }
+}

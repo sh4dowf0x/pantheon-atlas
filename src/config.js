@@ -1,0 +1,145 @@
+const fs = require('node:fs');
+const path = require('node:path');
+
+const APP_ROOT = path.resolve(__dirname, '..');
+const DATA_ROOT = process.env.PANTHEON_ATLAS_HOME
+  ? path.resolve(process.env.PANTHEON_ATLAS_HOME)
+  : APP_ROOT;
+
+const DEFAULT_CONFIG = {
+  server: { port: 3117 },
+  database: { path: 'data/pantheon-network.sqlite' },
+  retention: {
+    enabled: true,
+    keepMinutes: 60,
+    pruneEveryMinutes: 5,
+    walCheckpointEveryMinutes: 5
+  },
+  pantheon: { processName: 'Pantheon', processId: null },
+  memory: {
+    enabled: false,
+    pollEveryMs: 5000,
+    processName: 'Pantheon.exe',
+    maxRegionsPerSweep: 32,
+    maxBytesPerRegion: 65536,
+    minStringLength: 6,
+    keywords: [
+      'dealt',
+      'healed',
+      'damage',
+      'resisted',
+      'missed',
+      'slain',
+      'experience',
+      'ability',
+      'cooldown',
+      'casting',
+      'global cooldown',
+      'nexendia',
+      'shadowfox',
+      'blast',
+      'mana',
+      'venom',
+      'harune',
+      'serpentine',
+      'minion'
+    ]
+  },
+  addonLogs: {
+    enabled: true,
+    liveFile: path.join(
+      process.env.ProgramData || 'C:\\ProgramData',
+      'PantheonCombatData',
+      'combat-live-current.jsonl'
+    ),
+    pollEveryMs: 1000
+  },
+  entityScannerLogs: {
+    enabled: true,
+    liveFile: path.join(
+      process.env.ProgramData || 'C:\\ProgramData',
+      'PantheonEntityScanner',
+      'entities-live-current.jsonl'
+    ),
+    pollEveryMs: 1000
+  },
+  lootLogs: {
+    enabled: true,
+    liveFile: path.join(
+      process.env.ProgramData || 'C:\\ProgramData',
+      'PantheonLootData',
+      'loot-events-current.jsonl'
+    ),
+    pollEveryMs: 1000
+  },
+  communityItems: {
+    enabled: true,
+    downloadEnabled: true,
+    uploadEnabled: false,
+    uploadMode: 'worker',
+    uploadEndpoint: '',
+    publicBaseUrl: 'https://pub-bb6b866e2c73493f83b42111abb2e1c9.r2.dev',
+    manifestUrl: 'https://pub-bb6b866e2c73493f83b42111abb2e1c9.r2.dev/items-manifest.json',
+    downloadEveryMinutes: 60,
+    uploadEveryMinutes: 30,
+    batchSize: 100,
+    maxItems: 5000,
+    statePath: 'data/community-item-sync.json',
+    r2: {
+      endpoint: 'https://7e51af449fba623b17c429354bda9f69.r2.cloudflarestorage.com',
+      bucket: 'pantheon-item-database',
+      region: 'auto',
+      objectPrefix: 'contributions',
+      accessKeyIdEnv: 'PANTHEON_ATLAS_R2_ACCESS_KEY_ID',
+      secretAccessKeyEnv: 'PANTHEON_ATLAS_R2_SECRET_ACCESS_KEY'
+    }
+  }
+};
+
+function mergeConfig(base, override) {
+  if (!override || typeof override !== 'object' || Array.isArray(override)) return base;
+  const output = { ...base };
+  for (const [key, value] of Object.entries(override)) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      output[key] = mergeConfig(base[key] || {}, value);
+    } else {
+      output[key] = value;
+    }
+  }
+  return output;
+}
+
+function expandEnvPath(filePath) {
+  if (!filePath) return filePath;
+  return String(filePath)
+    .replace(/%([^%]+)%/g, (_match, name) => process.env[name] || process.env[name.toUpperCase()] || '')
+    .replace(/\$\{([^}]+)\}/g, (_match, name) => process.env[name] || '');
+}
+
+function resolveFromRoot(filePath, root = DATA_ROOT) {
+  if (!filePath) return filePath;
+  const expanded = expandEnvPath(filePath);
+  return path.isAbsolute(expanded) ? expanded : path.resolve(root, expanded);
+}
+
+function readConfig(configPath = path.join(DATA_ROOT, 'config.json')) {
+  let config = DEFAULT_CONFIG;
+  if (fs.existsSync(configPath)) {
+    const parsed = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    config = mergeConfig(DEFAULT_CONFIG, parsed);
+  }
+
+  config.database.path = resolveFromRoot(config.database.path);
+  if (config.addonLogs?.liveFile) config.addonLogs.liveFile = resolveFromRoot(config.addonLogs.liveFile);
+  if (config.entityScannerLogs?.liveFile) config.entityScannerLogs.liveFile = resolveFromRoot(config.entityScannerLogs.liveFile);
+  if (config.lootLogs?.liveFile) config.lootLogs.liveFile = resolveFromRoot(config.lootLogs.liveFile);
+  if (config.communityItems?.statePath) config.communityItems.statePath = resolveFromRoot(config.communityItems.statePath);
+  return config;
+}
+
+module.exports = {
+  DEFAULT_CONFIG,
+  DATA_ROOT,
+  readConfig,
+  resolveFromRoot
+};

@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Pantheon Atlas</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <div class="brand-block">
+          <h1>Pantheon Parser</h1>
+          <p id="status">Connecting...</p>
+        </div>
+        <div class="topbar-actions">
+          <div class="tabs" aria-label="Views">
+            <button class="tab-button active" type="button" data-tab="parser">Parser</button>
+            <button class="tab-button" type="button" data-tab="healing">Healing</button>
+            <button class="tab-button" type="button" data-tab="xp">XP</button>
+            <button class="tab-button" type="button" data-tab="encounters">Encounters</button>
+            <button class="tab-button" type="button" data-tab="loot">Loot</button>
+            <button class="tab-button" type="button" data-tab="map">Map</button>
+            <button class="tab-button" type="button" data-tab="diagnostics">Diagnostics</button>
+          </div>
+          <div class="controls" aria-label="Time range">
+            <button class="range-button" type="button" data-window="60">1m</button>
+            <button class="range-button" type="button" data-window="300">5m</button>
+            <button class="range-button" type="button" data-window="900">15m</button>
+            <button class="range-button active" type="button" data-window="0">All</button>
+          </div>
+          <button id="reset-button" class="reset-button" type="button">Reset View</button>
+          <button id="restart-button" class="restart-button" type="button">Restart Parser</button>
+        </div>
+      </header>
+
+      <section id="parser-view" class="view active">
+        <section class="metrics">
+          <div class="metric"><span>Total DPS</span><strong id="total-dps">0.00</strong></div>
+          <div class="metric"><span>Damage</span><strong id="total-damage">0</strong></div>
+          <div class="metric"><span>Kills</span><strong id="total-kills">0</strong></div>
+          <div class="metric"><span>Duration</span><strong id="duration">0s</strong></div>
+        </section>
+
+        <section class="workspace">
+          <div class="panel main-panel">
+            <div class="panel-head">
+              <h2>Damage Done</h2>
+              <span id="combatant-count">0 sources</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <colgroup>
+                  <col class="source-col">
+                  <col class="class-col">
+                  <col class="amount-col">
+                  <col class="rate-col">
+                  <col class="events-col">
+                  <col class="taken-col">
+                  <col class="out-mit-col">
+                  <col class="in-mit-col">
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>Source</th>
+                    <th>Class</th>
+                    <th class="number">Damage</th>
+                    <th class="number">DPS</th>
+                    <th class="number">Hits</th>
+                    <th class="number">Taken</th>
+                    <th class="number">Out Mit</th>
+                    <th class="number">In Mit</th>
+                  </tr>
+                </thead>
+                <tbody id="combatants">
+                  <tr><td colspan="8" class="empty">Waiting for combat data...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <aside class="panel detail-panel">
+            <div class="panel-head">
+              <h2 id="detail-title">Breakdown</h2>
+              <span id="detail-subtitle">Select a source</span>
+            </div>
+            <div id="breakdown" class="breakdown empty">No source selected.</div>
+          </aside>
+        </section>
+
+        <section class="panel events-panel">
+          <div class="panel-head">
+            <h2>Recent Parser Events</h2>
+            <span id="last-updated">-</span>
+          </div>
+          <div id="parser-events" class="events-list"></div>
+        </section>
+      </section>
+
+      <section id="healing-view" class="view">
+        <section class="metrics">
+          <div class="metric"><span>Total HPS</span><strong id="total-healing-hps">0.00</strong></div>
+          <div class="metric"><span>Healing</span><strong id="total-healing">0</strong></div>
+          <div class="metric"><span>Heals</span><strong id="total-heal-hits">0</strong></div>
+          <div class="metric"><span>Duration</span><strong id="healing-duration">0s</strong></div>
+        </section>
+
+        <section class="workspace">
+          <div class="panel main-panel">
+            <div class="panel-head">
+              <h2>Healing Done</h2>
+              <span id="healing-combatant-count">0 sources</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <colgroup>
+                  <col class="source-col">
+                  <col class="class-col">
+                  <col class="amount-col">
+                  <col class="rate-col">
+                  <col class="events-col">
+                  <col class="taken-col">
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>Source</th>
+                    <th>Class</th>
+                    <th class="number">Healing</th>
+                    <th class="number">HPS</th>
+                    <th class="number">Heals</th>
+                    <th class="number">Targets</th>
+                  </tr>
+                </thead>
+                <tbody id="healing-combatants">
+                  <tr><td colspan="6" class="empty">Waiting for healing data...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <aside class="panel detail-panel">
+            <div class="panel-head">
+              <h2 id="healing-detail-title">Healing Breakdown</h2>
+              <span id="healing-detail-subtitle">Select a source</span>
+            </div>
+            <div id="healing-breakdown" class="breakdown empty">No source selected.</div>
+          </aside>
+        </section>
+
+        <section class="panel events-panel">
+          <div class="panel-head">
+            <h2>Recent Healing Events</h2>
+            <span id="healing-last-updated">-</span>
+          </div>
+          <div id="healing-events" class="events-list"></div>
+        </section>
+      </section>
+
+      <section id="xp-view" class="view">
+        <section class="metrics">
+          <div class="metric"><span>Progress</span><strong id="xp-progress">0.00%</strong></div>
+          <div class="metric"><span>Current XP</span><strong id="xp-current">0</strong></div>
+          <div class="metric"><span>Remaining</span><strong id="xp-remaining">0</strong></div>
+          <div class="metric"><span>XP / Hour</span><strong id="xp-rate">0.00</strong></div>
+        </section>
+
+        <section class="xp-workspace">
+          <section class="panel xp-progress-panel">
+            <div class="panel-head">
+              <h2>Level Progress</h2>
+              <span id="xp-updated">-</span>
+            </div>
+            <div class="xp-progress-card">
+              <div class="xp-progress-track"><div id="xp-progress-fill" class="xp-progress-fill"></div></div>
+              <div class="xp-progress-detail">
+                <strong id="xp-progress-label">Waiting for XP data</strong>
+                <span id="xp-progress-subtitle">No gains recorded yet.</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel xp-target-panel">
+            <div class="panel-head">
+              <h2>XP By Target</h2>
+              <span id="xp-target-count">0 targets</span>
+            </div>
+            <div id="xp-target-list" class="xp-target-list">
+              <div class="empty">Waiting for XP data...</div>
+            </div>
+          </section>
+        </section>
+
+        <section class="panel xp-events-panel">
+          <div class="panel-head">
+            <h2>XP Gains</h2>
+            <span id="xp-event-count">0 gains</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Character</th>
+                  <th>Likely Target</th>
+                  <th class="number">Gain</th>
+                  <th class="number">Progress</th>
+                  <th class="number">Level</th>
+                </tr>
+              </thead>
+              <tbody id="xp-events">
+                <tr><td colspan="6" class="empty">Waiting for XP data...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section id="encounters-view" class="view">
+        <section class="metrics">
+          <div class="metric"><span>Damage</span><strong id="encounter-total-damage">0</strong></div>
+          <div class="metric"><span>Enemy Damage</span><strong id="encounter-enemy-damage">0</strong></div>
+          <div class="metric"><span>Healing</span><strong id="encounter-total-healing">0</strong></div>
+          <div class="metric"><span>Duration</span><strong id="encounter-duration">0s</strong></div>
+        </section>
+
+        <section class="encounter-workspace">
+          <aside class="panel encounter-list-panel">
+            <div class="panel-head">
+              <h2>Recent Encounters</h2>
+              <span id="encounter-count">0 fights</span>
+            </div>
+            <div id="encounter-list" class="encounter-list">
+              <div class="empty">Waiting for combat data...</div>
+            </div>
+          </aside>
+
+          <section class="panel encounter-report-panel">
+            <div class="panel-head">
+              <h2 id="encounter-title">Encounter Report</h2>
+              <span id="encounter-subtitle">Select a fight</span>
+            </div>
+            <div id="encounter-report" class="encounter-report">
+              <div class="empty">No encounter selected.</div>
+            </div>
+          </section>
+        </section>
+      </section>
+
+      <section id="loot-view" class="view">
+        <section class="metrics">
+          <div class="metric"><span>Known Items</span><strong id="loot-item-count">0</strong></div>
+          <div class="metric"><span>Instances</span><strong id="loot-instance-count">0</strong></div>
+          <div class="metric"><span>Rare+</span><strong id="loot-rare-count">0</strong></div>
+          <div class="metric"><span>Total Value</span><strong id="loot-total-value">0</strong></div>
+        </section>
+
+        <section class="loot-workspace">
+          <div class="panel loot-list-panel">
+            <div class="panel-head">
+              <h2>Item Database</h2>
+              <span id="loot-updated">-</span>
+            </div>
+            <div class="loot-filters">
+              <input id="loot-search" type="search" autocomplete="off" placeholder="Search items">
+              <select id="loot-rarity-filter"><option value="">All rarities</option></select>
+              <select id="loot-type-filter"><option value="">All types</option></select>
+              <select id="loot-class-filter"><option value="">All classes</option></select>
+              <select id="loot-slot-filter"><option value="">All slots</option></select>
+              <input id="loot-level-filter" type="number" min="1" max="99" step="1" placeholder="Max level">
+              <select id="loot-sort-filter">
+                <option value="lastSeen">Newest</option>
+                <option value="armor">Armor</option>
+                <option value="dps">DPS</option>
+                <option value="damage">Damage</option>
+                <option value="level">Level</option>
+                <option value="value">Value</option>
+                <option value="name">Name</option>
+              </select>
+            </div>
+            <div id="loot-list" class="loot-list">
+              <div class="empty">Waiting for loot data...</div>
+            </div>
+          </div>
+
+          <aside class="panel loot-detail-panel">
+            <div class="panel-head">
+              <h2 id="loot-detail-title">Item Detail</h2>
+              <span id="loot-detail-subtitle">Select an item</span>
+            </div>
+            <div id="loot-detail" class="loot-detail">
+              <div class="empty">No item selected.</div>
+            </div>
+          </aside>
+        </section>
+      </section>
+
+      <section id="map-view" class="view">
+        <section class="metrics">
+          <div class="metric"><span>Actor</span><strong id="map-actor">-</strong></div>
+          <div class="metric"><span>X</span><strong id="map-x">-</strong></div>
+          <div class="metric"><span>Y</span><strong id="map-y">-</strong></div>
+          <div class="metric"><span>Z</span><strong id="map-z">-</strong></div>
+        </section>
+
+        <section class="map-workspace">
+          <aside class="panel map-entity-panel">
+            <div class="panel-head">
+              <h2>Entities</h2>
+              <span id="map-entity-count">0 live</span>
+            </div>
+            <div class="map-search-row">
+              <input id="map-entity-search" type="search" autocomplete="off" placeholder="Search entities">
+              <label class="map-search-only">
+                <input id="map-search-only" type="checkbox">
+                <span>Show only</span>
+              </label>
+            </div>
+            <div id="map-entity-list" class="map-entity-list"></div>
+          </aside>
+
+          <div class="panel map-panel">
+            <div class="panel-head">
+              <h2>Live Position</h2>
+              <span id="map-updated">-</span>
+            </div>
+            <div class="map-canvas-wrap">
+              <canvas id="map-canvas" width="900" height="560" aria-label="Local coordinate map"></canvas>
+              <div id="map-tooltip" class="map-tooltip" hidden></div>
+            </div>
+          </div>
+
+          <aside class="panel map-side-panel">
+            <div class="panel-head">
+              <h2>Map Controls</h2>
+              <span id="map-count">0 points</span>
+            </div>
+            <div class="map-controls">
+              <label class="map-select-row">
+                <span>Map</span>
+                <select id="map-select">
+                  <option value="auto">Auto</option>
+                </select>
+              </label>
+              <label class="map-select-row">
+                <span>Layer</span>
+                <select id="map-layer-select">
+                  <option value="auto">Auto</option>
+                </select>
+              </label>
+              <label class="map-select-row">
+                <span>Trace</span>
+                <select id="map-calibration-label">
+                  <option value="surface-road">Surface road</option>
+                  <option value="upper">Upper dungeon</option>
+                  <option value="mid">Mid dungeon</option>
+                  <option value="lower1">Lower 1 dungeon</option>
+                  <option value="lower2">Lower 2 dungeon</option>
+                </select>
+              </label>
+              <div class="map-calibration-row">
+                <button id="map-calibration-toggle" class="external-link" type="button">Start Trace</button>
+                <span id="map-calibration-status">No trace</span>
+              </div>
+              <div class="map-toggle" aria-label="Map plane">
+                <button class="map-axis-button active" type="button" data-axis="xz">X/Z</button>
+                <button class="map-axis-button" type="button" data-axis="xy">X/Y</button>
+              </div>
+              <div class="zoom-row" aria-label="Map zoom">
+                <button id="map-zoom-out" class="zoom-button" type="button">-</button>
+                <span id="map-zoom">Zoom 6</span>
+                <button id="map-zoom-in" class="zoom-button" type="button">+</button>
+              </div>
+              <label class="map-select-row">
+                <span>Level</span>
+                <input id="map-player-level" type="number" min="1" max="100" placeholder="Auto">
+              </label>
+              <div class="map-checks">
+                <label class="check-row">
+                  <input id="map-follow" type="checkbox" checked>
+                  <span>Trail</span>
+                </label>
+                <label class="check-row">
+                  <input id="map-ignore-height" type="checkbox">
+                  <span>Ignore height</span>
+                </label>
+                <label class="check-row">
+                  <input id="map-mobs" type="checkbox" checked>
+                  <span>Mobs</span>
+                </label>
+                <label class="check-row">
+                  <input id="map-players" type="checkbox" checked>
+                  <span>Players</span>
+                </label>
+                <label class="check-row">
+                  <input id="map-nodes" type="checkbox" checked>
+                  <span>Nodes</span>
+                </label>
+                <label class="check-row">
+                  <input id="map-quest-items" type="checkbox" checked>
+                  <span>Quest</span>
+                </label>
+                <label class="check-row">
+                  <input id="map-chests" type="checkbox" checked>
+                  <span>Chests</span>
+                </label>
+                <label class="check-row">
+                  <input id="map-plants" type="checkbox" checked>
+                  <span>Plants</span>
+                </label>
+                <label class="check-row">
+                  <input id="map-trees" type="checkbox" checked>
+                  <span>Trees</span>
+                </label>
+                <label class="check-row">
+                  <input id="map-ore" type="checkbox" checked>
+                  <span>Ore</span>
+                </label>
+                <label class="check-row">
+                  <input id="map-npcs" type="checkbox" checked>
+                  <span>NPCs</span>
+                </label>
+                <label class="check-row">
+                  <input id="map-labels" type="checkbox">
+                  <span>Names</span>
+                </label>
+              </div>
+              <div class="map-legend">
+              <span><i class="legend-dot player"></i>Player</span>
+              <span><i class="legend-dot mob"></i>Mob</span>
+              <span><i class="legend-dot npc"></i>NPC</span>
+              <span><i class="legend-dot pet"></i>Pet</span>
+              <span><i class="legend-dot quest"></i>Quest</span>
+              <span><i class="legend-dot chest"></i>Chest</span>
+              <span><i class="legend-dot resource"></i>Node</span>
+            </div>
+              <a id="shalazam-link" class="external-link" href="https://shalazam.info/maps/1?zoom=6&x=2451&y=200" target="_blank" rel="noreferrer">Open Shalazam</a>
+            </div>
+          </aside>
+        </section>
+
+        <section class="panel priority-panel">
+          <div class="panel-head">
+            <h2>High Priority Mobs</h2>
+            <span id="priority-count">0 active</span>
+          </div>
+          <div class="priority-layout">
+            <label class="priority-editor">
+              <span>Watchlist</span>
+              <textarea id="priority-mob-list" rows="4" spellcheck="false" placeholder="One mob name per line"></textarea>
+            </label>
+            <div class="priority-results">
+              <div class="priority-controls">
+                <label class="check-row">
+                  <input id="priority-sound" type="checkbox" checked>
+                  <span>Sound</span>
+                </label>
+                <button id="priority-test-sound" class="external-link" type="button">Test Alert</button>
+              </div>
+              <div id="priority-active-list" class="priority-active-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel respawn-panel">
+          <div class="panel-head">
+            <h2>Respawn Timers</h2>
+            <span id="respawn-count">0 timers</span>
+          </div>
+          <div class="respawn-layout">
+            <div class="respawn-config">
+              <label class="respawn-editor">
+                <span>Camps</span>
+                <textarea id="respawn-camp-list" rows="4" spellcheck="false" placeholder="Larcs the Weaponsmith | placeholder name | 15"></textarea>
+              </label>
+              <div class="respawn-control-row">
+                <label>
+                  <span>Default</span>
+                  <input id="respawn-default-minutes" type="number" min="1" max="240" step="1">
+                </label>
+                <button id="respawn-clear-expired" class="external-link" type="button">Clear Due</button>
+              </div>
+            </div>
+            <div class="respawn-results">
+              <div class="respawn-manual">
+                <input id="respawn-manual-name" type="text" autocomplete="off" placeholder="Manual mob or camp">
+                <button id="respawn-manual-start" class="external-link" type="button">Start</button>
+              </div>
+              <div id="respawn-timer-list" class="respawn-timer-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel position-panel">
+          <div class="panel-head">
+            <h2>Position Updates</h2>
+            <span>latest trail points</span>
+          </div>
+          <div id="position-list" class="position-list"></div>
+        </section>
+      </section>
+
+      <section id="diagnostics-view" class="view">
+        <section class="metrics">
+          <div class="metric"><span>Game Events</span><strong id="event-count">0</strong></div>
+          <div class="metric"><span>Actors</span><strong id="actor-count">0</strong></div>
+          <div class="metric"><span>Last Event</span><strong id="last-event">-</strong></div>
+        </section>
+
+        <section class="panel unresolved-panel">
+          <div class="panel-head">
+            <h2>Unresolved Actors</h2>
+            <span id="unresolved-count">0 IDs</span>
+          </div>
+          <div id="unresolved-actors" class="unresolved-list"></div>
+        </section>
+
+        <section class="panel community-sync-panel">
+          <div class="panel-head">
+            <h2>Community Item Sync</h2>
+            <span id="community-sync-state">Disabled</span>
+          </div>
+          <div class="community-sync-controls">
+            <label>
+              <input id="community-sync-enabled" type="checkbox">
+              <span>Enable</span>
+            </label>
+            <label>
+              <input id="community-sync-download" type="checkbox">
+              <span>Download updates</span>
+            </label>
+            <label>
+              <input id="community-sync-upload" type="checkbox">
+              <span>Upload item changes</span>
+            </label>
+            <select id="community-sync-mode">
+              <option value="worker">Worker</option>
+              <option value="r2">Direct R2</option>
+            </select>
+            <input id="community-sync-access-key" type="password" autocomplete="off" placeholder="R2 access key">
+            <input id="community-sync-secret-key" type="password" autocomplete="off" placeholder="R2 secret key">
+            <button id="community-sync-save-keys" class="external-link" type="button">Save Keys</button>
+            <button id="community-sync-check" class="external-link" type="button">Check Updates</button>
+            <button id="community-sync-now" class="external-link" type="button">Upload Now</button>
+          </div>
+          <pre id="community-sync-details"></pre>
+        </section>
+
+        <section class="lab-grid">
+          <article class="panel">
+            <div class="panel-head"><h2>Game Events</h2><span>latest 40</span></div>
+            <div id="events" class="rows"></div>
+          </article>
+        </section>
+      </section>
+    </main>
+
+    <div id="pet-menu-backdrop" class="pet-menu-backdrop" hidden></div>
+    <div id="pet-menu" class="pet-menu" hidden>
+      <div id="pet-menu-title" class="pet-menu-title">Assign Pet</div>
+      <select id="pet-owner-select"></select>
+      <button id="pet-assign-button" type="button">Assign</button>
+      <button id="pet-unassign-button" type="button">Unassign</button>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

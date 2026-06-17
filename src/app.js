@@ -40,13 +40,20 @@ function sanitizeCharacterName(value) {
   return name.replace(/[<>:"/\\|?*\x00-\x1F]/g, '').trim() || null;
 }
 
+function canonicalCharacterLogName(value) {
+  const name = sanitizeCharacterName(value);
+  if (!name) return null;
+  return name.toLowerCase() === 'current' ? 'Current' : name;
+}
+
 function characterLogPath(existingPath, filePrefix, characterName, fallbackDir) {
-  const safeName = sanitizeCharacterName(characterName);
+  const safeName = canonicalCharacterLogName(characterName);
   if (!safeName) return existingPath;
+  const fileName = safeName.toLowerCase() === 'current' ? 'current' : safeName;
   const current = String(existingPath || '');
-  if (current.includes('{character}')) return current.replace(/\{character\}/g, safeName);
+  if (current.includes('{character}')) return current.replace(/\{character\}/g, fileName);
   const dir = current ? path.dirname(current) : fallbackDir;
-  return path.join(dir, `${filePrefix}-${safeName}.jsonl`);
+  return path.join(dir, `${filePrefix}-${fileName}.jsonl`);
 }
 
 function logDirectory(filePath, fallbackDir) {
@@ -62,8 +69,8 @@ function discoverCharactersInDirectory(dir, pattern) {
       .map((entry) => {
         const match = entry.name.match(pattern);
         if (!match) return null;
-        const name = sanitizeCharacterName(match[1]);
-        if (!name || name.toLowerCase() === 'current') return null;
+        const name = canonicalCharacterLogName(match[1]);
+        if (!name) return null;
         const stat = fs.statSync(path.join(dir, entry.name));
         return {
           name,
@@ -112,10 +119,10 @@ function promptLine(question, input = process.stdin, output = process.stdout) {
 }
 
 async function chooseCharacter(config, options = {}) {
-  const explicit = sanitizeCharacterName(options.character || process.env.PANTHEON_CHARACTER);
+  const explicit = canonicalCharacterLogName(options.character || process.env.PANTHEON_CHARACTER);
   if (explicit) return explicit;
   const choices = discoverCharacterLogChoices(config);
-  const configured = sanitizeCharacterName(config.pantheon?.localPlayerName);
+  const configured = canonicalCharacterLogName(config.pantheon?.localPlayerName);
   if (!choices.length) return configured;
   if (!options.input?.isTTY && options.input !== undefined) return configured || choices[0].name;
   const input = options.input || process.stdin;
@@ -141,11 +148,11 @@ async function chooseCharacter(config, options = {}) {
   const numeric = Number(answer);
   if (Number.isInteger(numeric) && numeric >= 1 && numeric <= choices.length) return choices[numeric - 1].name;
   const named = choices.find((choice) => choice.name.toLowerCase() === answer.toLowerCase());
-  return named ? named.name : sanitizeCharacterName(answer) || fallback.name;
+  return named ? named.name : canonicalCharacterLogName(answer) || fallback.name;
 }
 
 function applyCharacterSelection(config, requestedCharacter = null) {
-  const character = sanitizeCharacterName(
+  const character = canonicalCharacterLogName(
     requestedCharacter
     || process.env.PANTHEON_CHARACTER
     || config.pantheon?.localPlayerName

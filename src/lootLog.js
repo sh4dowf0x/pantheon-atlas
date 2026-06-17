@@ -255,9 +255,22 @@ class LootLogIngestor {
   start() {
     if (this.running || !this.config.enabled || !this.config.liveFile) return;
     this.running = true;
+    if (this.config.readExistingOnStart !== true) this.seekToEnd();
     this.readAvailable();
     const everyMs = Math.max(250, Number(this.config.pollEveryMs || 1000));
     this.timer = setInterval(() => this.readAvailable(), everyMs);
+  }
+
+  seekToEnd() {
+    try {
+      const stat = fs.statSync(this.config.liveFile);
+      this.offset = stat.size;
+      this.pending = '';
+      this.status.lastReadAt = new Date().toISOString();
+      this.status.lastError = null;
+    } catch (error) {
+      if (error.code !== 'ENOENT') this.status.lastError = error.message;
+    }
   }
 
   stop() {

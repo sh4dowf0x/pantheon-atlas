@@ -39,6 +39,14 @@ npm start -- --character Nexerin
 
 This sets the local player name and tails `combat-live-Nexerin.jsonl` plus `entities-live-Nexerin.jsonl` when the config paths use `{character}`.
 
+On servers where the mods only write the generic live files, choose `Current` at startup or run:
+
+```powershell
+npm start -- --character Current
+```
+
+This tails `combat-live-current.jsonl` and `entities-live-current.jsonl`.
+
 ## Ingest Files
 
 Set these sections in `config.json` to enable the feeds your mods write:

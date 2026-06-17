@@ -19,17 +19,20 @@
   "addonLogs": {
     "enabled": true,
     "liveFile": "%ProgramData%\\PantheonCombatData\\combat-live-{character}.jsonl",
-    "pollEveryMs": 1000
+    "pollEveryMs": 1000,
+    "readExistingOnStart": false
   },
   "entityScannerLogs": {
     "enabled": true,
     "liveFile": "%ProgramData%\\PantheonEntityScanner\\entities-live-{character}.jsonl",
-    "pollEveryMs": 1000
+    "pollEveryMs": 1000,
+    "readExistingOnStart": false
   },
   "lootLogs": {
     "enabled": true,
     "liveFile": "%ProgramData%\\PantheonLootData\\loot-events-current.jsonl",
-    "pollEveryMs": 1000
+    "pollEveryMs": 1000,
+    "readExistingOnStart": false
   },
   "communityItems": {
     "enabled": true,

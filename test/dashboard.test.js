@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { getAbilityRegistry, getEncounterReport, getHealingSummary, getLatestMapState, getLatestPositions, getMapCalibrationSamples, getMapCalibrationSummary, getMapEntityRows, getParserAbilityEvents, getParserSummary, getPositionRows, getRespawnDeathRows, getXpSummary, goblinLayerForY, inferLocalPlayerLevel, insertMapCalibrationSample, mapCalibrationLayerKeyForLabel, mapKeyForCoordinates, mapKeyForCoordinatesWithCalibration, mapKeyForZoneName } = require('../src/dashboard');
+const { getAbilityRegistry, getEncounterReport, getHealingSummary, getLatestMapState, getLatestPositions, getMapCalibrationSamples, getMapCalibrationSummary, getMapEntityRows, getMobDetail, getMobSummary, getParserAbilityEvents, getParserSummary, getPositionRows, getRespawnDeathRows, getXpSummary, goblinLayerForY, inferLocalPlayerLevel, insertMapCalibrationSample, mapCalibrationLayerKeyForLabel, mapKeyForCoordinates, mapKeyForCoordinatesWithCalibration, mapKeyForZoneName } = require('../src/dashboard');
 const { openStore } = require('../src/store');
 
 assert.equal(mapKeyForZoneName("Wild's End"), 'kingsreach');
@@ -1330,6 +1330,37 @@ store.insertEvent({
   rawText: 'Vaelris the Deadheart is prepared to attack you. This would be a great challenge.',
   eventKey: 'vaelris-priority-test'
 });
+store.insertEvent({
+  observedAt: new Date().toISOString(),
+  eventType: 'damage_estimate',
+  source: 'Vaelris the Deadheart',
+  target: 'Nexerin',
+  ability: 'Grave Hex',
+  amount: 18,
+  damageType: 'Magic',
+  rawText: 'Vaelris the Deadheart dealt 18 Magic damage to Nexerin with Grave Hex.',
+  eventKey: 'vaelris-grave-hex-test'
+});
+store.insertLootEvent({
+  observedAt: new Date().toISOString(),
+  eventType: 'item_added',
+  character: 'Nexerin',
+  characterId: 3950,
+  itemInstanceId: 'vaelris-drop-instance',
+  itemId: '99901',
+  itemName: 'Deadheart Charm',
+  source: 'Vaelris the Deadheart',
+  quantity: 1,
+  rawJson: JSON.stringify({
+    eventType: 'item_added',
+    acquisition: {
+      method: 'recent_offensive_target',
+      confidence: 'medium',
+      source: { name: 'Vaelris the Deadheart', level: 12, x: 4052.646, y: 466.562, z: -2238.157 }
+    }
+  }),
+  eventKey: 'vaelris-drop-test'
+});
 const petMapRows = getMapEntityRows(store.db, 200);
 const stoneFragmentRow = petMapRows.find((row) => row.name === 'Ghaldassii Stone Fragment');
 assert.equal(stoneFragmentRow.kind, 'quest');
@@ -1365,6 +1396,15 @@ const brineclawRow = petMapRows.find((row) => row.name === 'brineclaw net-weaver
 assert.equal(brineclawRow.disposition, 'prepared to attack');
 const vaelrisRow = petMapRows.find((row) => row.entityId === '76770000');
 assert.equal(vaelrisRow.priorityCandidate, true);
+
+const mobSummary = getMobSummary(store.db, { search: 'Vaelris' });
+assert.equal(mobSummary.rows[0].name, 'Vaelris the Deadheart');
+assert.equal(mobSummary.rows[0].abilityCount, 1);
+assert.equal(mobSummary.rows[0].dropCount, 1);
+const mobDetail = getMobDetail(store.db, 'Vaelris the Deadheart');
+assert.equal(mobDetail.abilities[0].ability, 'Grave Hex');
+assert.equal(mobDetail.drops[0].name, 'Deadheart Charm');
+assert.equal(mobDetail.lastLocation.x, 4052.646);
 
 const petSummary = getParserSummary(store.db, 300);
 const zotik = petSummary.combatants.find((row) => row.source === "Nexendia's Minion");

@@ -41,6 +41,16 @@ assert.equal(templated.addonLogs.liveFile, 'C:\\logs\\combat-live-Sowplz.jsonl')
 assert.equal(templated.entityScannerLogs.liveFile, 'C:\\logs\\entities-live-Sowplz.jsonl');
 assert.equal(templated.lootLogs.liveFile, 'C:\\logs\\loot-events-Sowplz.jsonl');
 
+const currentSelection = {
+  pantheon: {},
+  addonLogs: { liveFile: 'C:\\logs\\combat-live-{character}.jsonl' },
+  entityScannerLogs: { liveFile: 'C:\\logs\\entities-live-{character}.jsonl' }
+};
+applyCharacterSelection(currentSelection, 'Current');
+assert.equal(currentSelection.pantheon.localPlayerName, 'Current');
+assert.equal(currentSelection.addonLogs.liveFile, 'C:\\logs\\combat-live-current.jsonl');
+assert.equal(currentSelection.entityScannerLogs.liveFile, 'C:\\logs\\entities-live-current.jsonl');
+
 async function runAsyncTests() {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-app-test-'));
   const combatDir = path.join(tempDir, 'combat');
@@ -51,6 +61,7 @@ async function runAsyncTests() {
   fs.writeFileSync(path.join(combatDir, 'combat-live-Shadowfox.jsonl'), '{}\n');
   fs.writeFileSync(path.join(combatDir, 'combat-live-current.jsonl'), '{}\n');
   fs.writeFileSync(path.join(combatDir, 'combat-live-Nexerin.jsonl.previous'), '{}\n');
+  fs.writeFileSync(path.join(entityDir, 'entities-live-current.jsonl'), '{}\n');
   fs.writeFileSync(path.join(entityDir, 'entities-live-Shadowfox.jsonl'), '{}\n');
   const discoveryConfig = {
     pantheon: { localPlayerName: 'Nexerin' },
@@ -58,11 +69,14 @@ async function runAsyncTests() {
     entityScannerLogs: { liveFile: path.join(entityDir, 'entities-live-{character}.jsonl') }
   };
   const choices = discoverCharacterLogChoices(discoveryConfig);
-  assert.deepEqual(new Set(choices.map((choice) => choice.name)), new Set(['Nexerin', 'Shadowfox']));
+  assert.deepEqual(new Set(choices.map((choice) => choice.name)), new Set(['Current', 'Nexerin', 'Shadowfox']));
+  assert.equal(choices.find((choice) => choice.name === 'Current').combat.path, path.join(combatDir, 'combat-live-current.jsonl'));
+  assert.equal(choices.find((choice) => choice.name === 'Current').entity.path, path.join(entityDir, 'entities-live-current.jsonl'));
   assert.equal(choices.find((choice) => choice.name === 'Shadowfox').combat.path, path.join(combatDir, 'combat-live-Shadowfox.jsonl'));
   assert.equal(choices.find((choice) => choice.name === 'Shadowfox').entity.path, path.join(entityDir, 'entities-live-Shadowfox.jsonl'));
   const nonInteractiveInput = { isTTY: false };
   assert.equal(await chooseCharacter(discoveryConfig, { input: nonInteractiveInput }), 'Nexerin');
+  assert.equal(await chooseCharacter(discoveryConfig, { character: 'current', input: nonInteractiveInput }), 'Current');
   assert.equal(await chooseCharacter(discoveryConfig, { character: 'Sowplz', input: nonInteractiveInput }), 'Sowplz');
   fs.rmSync(tempDir, { recursive: true, force: true });
 }

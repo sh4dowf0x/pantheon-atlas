@@ -20,6 +20,7 @@
             <button class="tab-button" type="button" data-tab="xp">XP</button>
             <button class="tab-button" type="button" data-tab="encounters">Encounters</button>
             <button class="tab-button" type="button" data-tab="loot">Loot</button>
+            <button class="tab-button" type="button" data-tab="mobs">Mobs</button>
             <button class="tab-button" type="button" data-tab="map">Map</button>
             <button class="tab-button" type="button" data-tab="diagnostics">Diagnostics</button>
           </div>
@@ -289,6 +290,40 @@
             </div>
             <div id="loot-detail" class="loot-detail">
               <div class="empty">No item selected.</div>
+            </div>
+          </aside>
+        </section>
+      </section>
+
+      <section id="mobs-view" class="view">
+        <section class="metrics">
+          <div class="metric"><span>Known Mobs</span><strong id="mob-count">0</strong></div>
+          <div class="metric"><span>With Abilities</span><strong id="mob-ability-count">0</strong></div>
+          <div class="metric"><span>With Drops</span><strong id="mob-drop-count">0</strong></div>
+          <div class="metric"><span>Kills</span><strong id="mob-kill-count">0</strong></div>
+        </section>
+
+        <section class="mobs-workspace">
+          <div class="panel mob-list-panel">
+            <div class="panel-head">
+              <h2>Mob Database</h2>
+              <span id="mob-updated">-</span>
+            </div>
+            <div class="mob-filters">
+              <input id="mob-search" type="search" autocomplete="off" placeholder="Search mobs">
+            </div>
+            <div id="mob-list" class="mob-list">
+              <div class="empty">Waiting for mob data...</div>
+            </div>
+          </div>
+
+          <aside class="panel mob-detail-panel">
+            <div class="panel-head">
+              <h2 id="mob-detail-title">Mob Detail</h2>
+              <span id="mob-detail-subtitle">Select a mob</span>
+            </div>
+            <div id="mob-detail" class="mob-detail">
+              <div class="empty">No mob selected.</div>
             </div>
           </aside>
         </section>

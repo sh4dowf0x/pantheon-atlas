@@ -1,6 +1,6 @@
 {
   "name": "pantheon-atlas",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Pantheon session atlas for combat logs, encounters, loot, maps, and live observations.",
   "repository": {
     "type": "git",
@@ -17,6 +17,8 @@
     "record-map": "node --no-warnings scripts/record-map-calibration.js",
     "backfill-abilities": "node --no-warnings scripts/backfill-ability-registry.js",
     "import-named-mobs": "node --no-warnings scripts/import-shalazam-named-mobs.js",
+    "import-item-art": "node --no-warnings scripts/import-shalazam-item-art.js",
+    "cache-item-art": "node --no-warnings scripts/cache-item-art.js",
     "test": "node --no-warnings test/parser.test.js && node --no-warnings test/addonLog.test.js && node --no-warnings test/entityScannerLog.test.js && node --no-warnings test/lootLog.test.js && node --no-warnings test/itemSync.test.js && node --no-warnings test/namedMobs.test.js && node --no-warnings test/app.test.js && node --no-warnings test/dashboard.test.js"
   },
   "keywords": [

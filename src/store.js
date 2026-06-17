@@ -3,6 +3,27 @@ const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
 const { abilityRegistryRecordFromEvent } = require('./abilityRegistry');
 
+function parseJsonObject(value) {
+  try {
+    const parsed = JSON.parse(value || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function mergeLootTemplateJson(incomingJson, existingJson) {
+  const incoming = parseJsonObject(incomingJson);
+  const existing = parseJsonObject(existingJson);
+  const preservedKeys = ['artUrl', 'artSource', 'iconUrl', 'communitySources'];
+  for (const key of preservedKeys) {
+    if ((incoming[key] === undefined || incoming[key] === null || incoming[key] === '') && existing[key] !== undefined && existing[key] !== null && existing[key] !== '') {
+      incoming[key] = existing[key];
+    }
+  }
+  return JSON.stringify(incoming);
+}
+
 function ensureSchema(db) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS raw_packets (
@@ -408,6 +429,11 @@ function openStore(databasePath) {
     ORDER BY last_seen DESC, ability_name
     LIMIT ?
   `);
+  const getLootItemTemplate = db.prepare(`
+    SELECT template_json AS templateJson
+    FROM loot_items
+    WHERE item_id = ?
+  `);
   const upsertLootItem = db.prepare(`
     INSERT INTO loot_items (
       item_id, name, rarity, item_type, armor_type_name, weapon_type,
@@ -579,6 +605,8 @@ function openStore(databasePath) {
     upsertLootItem(record) {
       if (!record?.itemId || !record?.name || !record?.templateJson) return false;
       const observedAt = record.observedAt || new Date().toISOString();
+      const existing = getLootItemTemplate.get(String(record.itemId));
+      const templateJson = mergeLootTemplateJson(record.templateJson, existing?.templateJson);
       const result = upsertLootItem.run(
         String(record.itemId),
         record.name,
@@ -594,7 +622,7 @@ function openStore(databasePath) {
         record.weight ?? null,
         record.flagsJson || null,
         record.statsJson || null,
-        record.templateJson,
+        templateJson,
         observedAt,
         observedAt
       );

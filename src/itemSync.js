@@ -2,6 +2,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const zlib = require('node:zlib');
+const { itemArtUrlForName } = require('./itemArt');
 
 function parseJson(value, fallback) {
   try {
@@ -120,6 +121,7 @@ function normalizeItemRow(row) {
     flags: parseJson(row.flagsJson, []),
     stats: statMap(stats),
     iconKey: template.iconKey || null,
+    artUrl: template.artUrl || template.iconUrl || itemArtUrlForName(row.name) || null,
     description: template.itemDescription || null,
     sources: mergeSourceLists(Array.isArray(template.communitySources) ? template.communitySources : [], normalizeSourceRows(row.sourcesJson)),
     source: {
@@ -212,6 +214,7 @@ function itemRecordFromCommunityItem(item, observedAt = new Date().toISOString()
     coinValue: item.coinValue ?? null,
     weight: item.weight ?? null,
     iconKey: item.iconKey || null,
+    artUrl: item.artUrl || null,
     itemDescription: item.description || null,
     itemFlags: Array.isArray(item.flags) ? item.flags.join(', ') : item.flags || null,
     communitySource: true

@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const zlib = require('node:zlib');
 const { CommunityItemSync, getNormalizedItems, signedS3PutRequest } = require('../src/itemSync');
+const { writeItemArtIndex } = require('../src/itemArt');
 const { parseLootLogLine } = require('../src/lootLog');
 const { openStore } = require('../src/store');
 
@@ -43,7 +44,8 @@ const server = http.createServer((req, res) => {
         requiredProficiency: 'Plate',
         requiredLevel: 8,
         stats: { Armor: 22, Stamina: 2 },
-        flags: ['Magic']
+        flags: ['Magic'],
+        artUrl: 'https://shalazam.info/static/icons/SkollPantheonSprite/webp/3_Leather_head.webp'
       }]
     }), 'utf8'));
     res.writeHead(200, {
@@ -168,6 +170,7 @@ async function run() {
   assert.equal(communityHelm.equipSlotName, 'Head');
   assert.deepEqual(communityHelm.classRequirementNames, ['Dire Lord']);
   assert.equal(communityHelm.stats.Armor, 22);
+  assert.equal(communityHelm.artUrl, 'https://shalazam.info/static/icons/SkollPantheonSprite/webp/3_Leather_head.webp');
   assert.deepEqual(await downloadSync.uploadChangedItems(), { uploaded: 0, changed: 0 });
   assert.equal(uploads.length, 1);
 
@@ -214,6 +217,80 @@ async function run() {
   assert.match(r2Uploads[0].authorization, /^AWS4-HMAC-SHA256 /);
   assert.equal(r2Uploads[0].contentEncoding, 'gzip');
   assert.ok(r2Uploads[0].body.items.some((item) => item.name === 'Test Helm'));
+
+  const preserveDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-art-preserve-test-'));
+  const preserveStore = openStore(path.join(preserveDir, 'test.sqlite'));
+  preserveStore.upsertLootItem({
+    observedAt: '2026-06-15T01:00:00.000Z',
+    itemId: 'art-preserve-1',
+    name: 'Art Preserve Helm',
+    rarity: 'Rare',
+    itemType: 'Armor',
+    armorTypeName: 'Plate',
+    requiredLevel: 8,
+    flagsJson: JSON.stringify(['Magic']),
+    statsJson: JSON.stringify({ statModifiers: [{ stat: 'Armor', value: 22 }] }),
+    templateJson: JSON.stringify({
+      itemId: 'art-preserve-1',
+      itemName: 'Art Preserve Helm',
+      itemType: 'Armor',
+      rarity: 'Rare',
+      armorTypeName: 'Plate',
+      equipSlotName: 'Head',
+      artUrl: 'https://shalazam.info/static/icons/SkollPantheonSprite/webp/3_Leather_head.webp',
+      artSource: 'shalazam'
+    })
+  });
+  preserveStore.upsertLootItem({
+    observedAt: '2026-06-15T02:00:00.000Z',
+    itemId: 'art-preserve-1',
+    name: 'Art Preserve Helm',
+    rarity: 'Rare',
+    itemType: 'Armor',
+    armorTypeName: 'Plate',
+    requiredLevel: 8,
+    flagsJson: JSON.stringify(['Magic']),
+    statsJson: JSON.stringify({ statModifiers: [{ stat: 'Armor', value: 24 }] }),
+    templateJson: JSON.stringify({
+      itemId: 'art-preserve-1',
+      itemName: 'Art Preserve Helm',
+      itemType: 'Armor',
+      rarity: 'Rare',
+      armorTypeName: 'Plate',
+      equipSlotName: 'Head'
+    })
+  });
+  const preservedItem = getNormalizedItems(preserveStore.db, 10).find((item) => item.itemId === 'art-preserve-1');
+  assert.equal(preservedItem.stats.Armor, 24);
+  assert.equal(preservedItem.artUrl, 'https://shalazam.info/static/icons/SkollPantheonSprite/webp/3_Leather_head.webp');
+  preserveStore.upsertLootItem({
+    observedAt: '2026-06-15T03:00:00.000Z',
+    itemId: 'art-index-1',
+    name: 'Art Index Helm',
+    rarity: 'Rare',
+    itemType: 'Armor',
+    armorTypeName: 'Plate',
+    requiredLevel: 8,
+    flagsJson: JSON.stringify(['Magic']),
+    statsJson: JSON.stringify({ statModifiers: [{ stat: 'Armor', value: 18 }] }),
+    templateJson: JSON.stringify({
+      itemId: 'art-index-1',
+      itemName: 'Art Index Helm',
+      itemType: 'Armor',
+      rarity: 'Rare',
+      armorTypeName: 'Plate',
+      equipSlotName: 'Head'
+    })
+  });
+  writeItemArtIndex([{
+    name: 'Art Index Helm',
+    artUrl: 'https://shalazam.info/static/icons/SkollPantheonSprite/webp/Helm_38.webp',
+    artSource: 'shalazam'
+  }]);
+  const indexedItem = getNormalizedItems(preserveStore.db, 10).find((item) => item.itemId === 'art-index-1');
+  assert.equal(indexedItem.artUrl, 'https://shalazam.info/static/icons/SkollPantheonSprite/webp/Helm_38.webp');
+  preserveStore.close();
+  fs.rmSync(preserveDir, { recursive: true, force: true });
 
   store.close();
   fs.rmSync(tempDir, { recursive: true, force: true });

@@ -52,7 +52,8 @@ const DEFAULT_CONFIG = {
       'PantheonCombatData',
       'combat-live-current.jsonl'
     ),
-    pollEveryMs: 1000
+    pollEveryMs: 1000,
+    readExistingOnStart: false
   },
   entityScannerLogs: {
     enabled: true,
@@ -61,7 +62,8 @@ const DEFAULT_CONFIG = {
       'PantheonEntityScanner',
       'entities-live-current.jsonl'
     ),
-    pollEveryMs: 1000
+    pollEveryMs: 1000,
+    readExistingOnStart: false
   },
   lootLogs: {
     enabled: true,
@@ -70,7 +72,8 @@ const DEFAULT_CONFIG = {
       'PantheonLootData',
       'loot-events-current.jsonl'
     ),
-    pollEveryMs: 1000
+    pollEveryMs: 1000,
+    readExistingOnStart: false
   },
   communityItems: {
     enabled: true,

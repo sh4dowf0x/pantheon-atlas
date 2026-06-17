@@ -4,6 +4,7 @@ const http = require('node:http');
 const path = require('node:path');
 const { URL } = require('node:url');
 const { inferAbilityClass, normalizeAbilityName } = require('./abilityRegistry');
+const { cacheItemArt, isAllowedItemArtUrl, itemArtUrlForName, readCachedItemArt } = require('./itemArt');
 const { extractSpawnRecords } = require('./parser');
 const { getNamedMobSummary, normalizeMobName } = require('./namedMobs');
 
@@ -507,6 +508,24 @@ function fetchHttpsBuffer(url) {
   });
 }
 
+async function sendRemoteImage(res, url) {
+  if (!isAllowedItemArtUrl(url)) {
+    sendJson(res, 400, { error: 'Unsupported image URL' });
+    return;
+  }
+  try {
+    let data = await readCachedItemArt(url);
+    if (!data) {
+      await cacheItemArt(url);
+      data = await readCachedItemArt(url);
+    }
+    if (!data) throw new Error('Item art cache miss');
+    sendBuffer(res, 200, data, 'image/webp');
+  } catch (error) {
+    sendJson(res, 502, { error: error.message || 'Image fetch failed' });
+  }
+}
+
 async function sendMapTile(res, mapKey, layerKey, z, x, y) {
   const map = getMapConfig(mapKey);
   const layer = map.tileLayers.find((item) => item.key === layerKey) || map.tileLayers[0];
@@ -831,6 +850,7 @@ function mapLootItemRow(row, options = {}) {
     armorValue: statValueFromStats(stats, 'Armor'),
     weaponDps: Number(row.maxDamage) > 0 && Number(row.delay) > 0 ? Number((Number(row.maxDamage) / Number(row.delay)).toFixed(2)) : null,
     iconKey: template.iconKey || null,
+    artUrl: template.artUrl || template.iconUrl || itemArtUrlForName(row.name) || null,
     description: template.itemDescription || null,
     firstSeen: row.firstSeen,
     lastSeen: row.lastSeen,
@@ -1034,6 +1054,269 @@ function getLootItemDetail(db, itemId) {
     quantity: event.quantity === null || event.quantity === undefined ? null : Number(event.quantity)
   }));
   return item;
+}
+
+function mobKey(name) {
+  return normalizeMobName(String(name || '').trim());
+}
+
+function cleanMobName(name) {
+  const value = String(name || '').trim();
+  if (!value || value.toLowerCase().startsWith('unknown entity')) return null;
+  return value;
+}
+
+function buildMobIndex(db) {
+  const mobs = new Map();
+  const addMob = (name) => {
+    const clean = cleanMobName(name);
+    if (!clean) return null;
+    const key = mobKey(clean);
+    if (!key) return null;
+    if (!mobs.has(key)) {
+      mobs.set(key, {
+        key,
+        name: clean,
+        className: null,
+        race: null,
+        kind: null,
+        levelMin: null,
+        levelMax: null,
+        firstSeen: null,
+        lastSeen: null,
+        seenCount: 0,
+        lastX: null,
+        lastY: null,
+        lastZ: null,
+        entityIds: new Set(),
+        abilities: new Map(),
+        drops: new Map(),
+        damageDone: 0,
+        damageTaken: 0,
+        combatEvents: 0,
+        killCount: 0
+      });
+    }
+    return mobs.get(key);
+  };
+  const touch = (mob, observedAt) => {
+    if (!mob || !observedAt) return;
+    mob.seenCount += 1;
+    if (!mob.firstSeen || observedAt < mob.firstSeen) mob.firstSeen = observedAt;
+    if (!mob.lastSeen || observedAt > mob.lastSeen) mob.lastSeen = observedAt;
+  };
+
+  const entityRows = db.prepare(`
+    SELECT observed_at observedAt, target name, ability, amount level, damage_type entityId,
+           x, y, z, raw_text rawText
+    FROM game_events
+    WHERE event_type = 'world_entity'
+      AND target IS NOT NULL
+      AND (ability = 'entityKind:mob' OR ability IS NULL OR ability NOT LIKE 'entityKind:npc')
+    ORDER BY observed_at DESC, id DESC
+    LIMIT 15000
+  `).all();
+  for (const row of entityRows) {
+    const kind = String(row.ability || '').startsWith('entityKind:') ? String(row.ability).slice('entityKind:'.length) : 'mob';
+    if (kind && !['mob', 'enemy', 'hostile'].includes(kind)) continue;
+    const mob = addMob(row.name);
+    if (!mob) continue;
+    touch(mob, row.observedAt);
+    const level = Number(row.level);
+    if (Number.isFinite(level) && level > 0) {
+      mob.levelMin = mob.levelMin === null ? level : Math.min(mob.levelMin, level);
+      mob.levelMax = mob.levelMax === null ? level : Math.max(mob.levelMax, level);
+    }
+    if (row.entityId) mob.entityIds.add(row.entityId);
+    if (row.observedAt >= (mob.locationObservedAt || '')) {
+      mob.lastX = Number.isFinite(Number(row.x)) ? Number(row.x) : mob.lastX;
+      mob.lastY = Number.isFinite(Number(row.y)) ? Number(row.y) : mob.lastY;
+      mob.lastZ = Number.isFinite(Number(row.z)) ? Number(row.z) : mob.lastZ;
+      mob.locationObservedAt = row.observedAt;
+    }
+    const metadata = scannerMetadataFromRawText(row.rawText);
+    if (metadata?.className) mob.className = metadata.className;
+    if (metadata?.race) mob.race = metadata.race;
+    if (metadata?.scannerKind) mob.kind = metadata.scannerKind;
+  }
+
+  const conRows = db.prepare(`
+    SELECT observed_at observedAt, target name, amount level, damage_type entityId
+    FROM game_events
+    WHERE event_type = 'target_con'
+      AND target IS NOT NULL
+    ORDER BY observed_at DESC, id DESC
+    LIMIT 5000
+  `).all();
+  for (const row of conRows) {
+    const mob = addMob(row.name);
+    if (!mob) continue;
+    touch(mob, row.observedAt);
+    const level = Number(row.level);
+    if (Number.isFinite(level) && level > 0) {
+      mob.levelMin = mob.levelMin === null ? level : Math.min(mob.levelMin, level);
+      mob.levelMax = mob.levelMax === null ? level : Math.max(mob.levelMax, level);
+    }
+    if (row.entityId) mob.entityIds.add(row.entityId);
+  }
+
+  const dropRows = db.prepare(`
+    SELECT le.observed_at observedAt, le.source, le.raw_json rawJson,
+           le.item_id itemId, COALESCE(li.name, le.item_name) itemName, li.rarity
+    FROM loot_events le
+    LEFT JOIN loot_items li ON li.item_id = le.item_id
+    WHERE le.item_id IS NOT NULL
+      AND (le.source IS NOT NULL OR le.raw_json LIKE '%"acquisition"%')
+    ORDER BY le.observed_at DESC, le.id DESC
+    LIMIT 5000
+  `).all();
+  for (const row of dropRows) {
+    const source = sourceNameFromLootEvent(row);
+    const mob = addMob(source);
+    if (!mob || !row.itemId) continue;
+    touch(mob, row.observedAt);
+    const key = String(row.itemId);
+    const current = mob.drops.get(key) || {
+      itemId: key,
+      name: row.itemName || key,
+      rarity: row.rarity || null,
+      count: 0,
+      lastSeen: null
+    };
+    current.count += 1;
+    if (!current.lastSeen || row.observedAt > current.lastSeen) current.lastSeen = row.observedAt;
+    mob.drops.set(key, current);
+  }
+
+  const combatRows = db.prepare(`
+    SELECT observed_at observedAt, event_type eventType, source, target, ability, amount
+    FROM game_events
+    WHERE event_type IN ('damage_estimate', 'mitigation_estimate')
+      AND source IS NOT NULL
+      AND target IS NOT NULL
+      AND raw_text NOT LIKE '[EntityScanner]%'
+    ORDER BY observed_at DESC, id DESC
+    LIMIT 20000
+  `).all();
+  for (const row of combatRows) {
+    const sourceMob = mobs.get(mobKey(row.source));
+    const targetMob = mobs.get(mobKey(row.target));
+    if (sourceMob) {
+      touch(sourceMob, row.observedAt);
+      sourceMob.combatEvents += 1;
+      if (row.eventType === 'damage_estimate') {
+        sourceMob.damageDone += Number(row.amount || 0);
+        const ability = String(row.ability || 'Unknown ability').trim() || 'Unknown ability';
+        const current = sourceMob.abilities.get(ability) || {
+          ability,
+          count: 0,
+          totalDamage: 0,
+          lastSeen: null
+        };
+        current.count += 1;
+        current.totalDamage += Number(row.amount || 0);
+        if (!current.lastSeen || row.observedAt > current.lastSeen) current.lastSeen = row.observedAt;
+        sourceMob.abilities.set(ability, current);
+      }
+    }
+    if (targetMob) {
+      touch(targetMob, row.observedAt);
+      targetMob.combatEvents += 1;
+      if (row.eventType === 'damage_estimate') targetMob.damageTaken += Number(row.amount || 0);
+    }
+  }
+
+  const killRows = db.prepare(`
+    SELECT observed_at observedAt, target
+    FROM game_events
+    WHERE event_type = 'kill'
+      AND target IS NOT NULL
+    ORDER BY observed_at DESC, id DESC
+    LIMIT 5000
+  `).all();
+  for (const row of killRows) {
+    const mob = mobs.get(mobKey(row.target));
+    if (!mob) continue;
+    mob.killCount += 1;
+    touch(mob, row.observedAt);
+  }
+
+  return mobs;
+}
+
+function publicMobRow(mob) {
+  const abilities = [...mob.abilities.values()].sort((left, right) => right.count - left.count || left.ability.localeCompare(right.ability));
+  const drops = [...mob.drops.values()].sort((left, right) => right.count - left.count || left.name.localeCompare(right.name));
+  const inferredClass = mob.className ? null : inferClassFromAbilities(abilities.map((row) => row.ability));
+  return {
+    key: mob.key,
+    name: mob.name,
+    className: mob.className || (inferredClass?.className !== 'Unknown' ? inferredClass.className : null),
+    classConfidence: mob.className ? 100 : inferredClass?.classConfidence || 0,
+    race: mob.race || null,
+    kind: mob.kind || null,
+    levelMin: mob.levelMin,
+    levelMax: mob.levelMax,
+    firstSeen: mob.firstSeen,
+    lastSeen: mob.lastSeen,
+    seenCount: mob.seenCount,
+    abilityCount: abilities.length,
+    dropCount: drops.length,
+    damageDone: Number(mob.damageDone.toFixed(1)),
+    damageTaken: Number(mob.damageTaken.toFixed(1)),
+    combatEvents: mob.combatEvents,
+    killCount: mob.killCount,
+    lastLocation: [mob.lastX, mob.lastY, mob.lastZ].every((value) => Number.isFinite(Number(value)))
+      ? { x: mob.lastX, y: mob.lastY, z: mob.lastZ, observedAt: mob.locationObservedAt || null }
+      : null
+  };
+}
+
+function getMobSummary(db, options = {}) {
+  const search = String(options.search || '').trim().toLowerCase();
+  const limit = Math.max(1, Math.min(500, Number(options.limit) || 160));
+  const rows = [...buildMobIndex(db).values()]
+    .map(publicMobRow)
+    .filter((row) => !search || [
+      row.name,
+      row.className,
+      row.race,
+      row.kind
+    ].filter(Boolean).join(' ').toLowerCase().includes(search))
+    .sort((left, right) => Date.parse(right.lastSeen || 0) - Date.parse(left.lastSeen || 0) || left.name.localeCompare(right.name));
+  return {
+    generatedAt: new Date().toISOString(),
+    totals: {
+      mobs: rows.length,
+      withAbilities: rows.filter((row) => row.abilityCount > 0).length,
+      withDrops: rows.filter((row) => row.dropCount > 0).length,
+      kills: rows.reduce((sum, row) => sum + Number(row.killCount || 0), 0),
+      lastSeenAt: rows[0]?.lastSeen || null
+    },
+    rows: rows.slice(0, limit)
+  };
+}
+
+function getMobDetail(db, name) {
+  const wanted = mobKey(name);
+  if (!wanted) return null;
+  const mob = buildMobIndex(db).get(wanted);
+  if (!mob) return null;
+  const row = publicMobRow(mob);
+  return {
+    ...row,
+    entityIds: [...mob.entityIds].slice(0, 20),
+    abilities: [...mob.abilities.values()]
+      .sort((left, right) => right.count - left.count || right.totalDamage - left.totalDamage || left.ability.localeCompare(right.ability))
+      .slice(0, 40)
+      .map((ability) => ({
+        ...ability,
+        totalDamage: Number(ability.totalDamage.toFixed(1))
+      })),
+    drops: [...mob.drops.values()]
+      .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name))
+      .slice(0, 40)
+  };
 }
 
 function getRecentMemoryObservations(db, limit = 100) {
@@ -3014,6 +3297,12 @@ function createServer(store, options = {}) {
         });
         return;
       }
+      if (url.pathname === '/api/item-art') {
+        sendRemoteImage(res, url.searchParams.get('url')).catch((error) => {
+          sendJson(res, 502, { error: error.message });
+        });
+        return;
+      }
       if (url.pathname === '/api/parser/summary') {
         sendJson(res, 200, getParserSummary(db, Number(url.searchParams.get('window') || 300), url.searchParams.get('since') || null));
         return;
@@ -3046,6 +3335,22 @@ function createServer(store, options = {}) {
           return;
         }
         sendJson(res, 200, item);
+        return;
+      }
+      if (url.pathname === '/api/mobs/summary') {
+        sendJson(res, 200, getMobSummary(db, {
+          search: url.searchParams.get('search') || '',
+          limit: Number(url.searchParams.get('limit') || 160)
+        }));
+        return;
+      }
+      if (url.pathname === '/api/mobs/detail') {
+        const mob = getMobDetail(db, url.searchParams.get('name') || '');
+        if (!mob) {
+          sendJson(res, 404, { error: 'Mob not found' });
+          return;
+        }
+        sendJson(res, 200, mob);
         return;
       }
       if (url.pathname === '/api/encounters') {
@@ -3133,6 +3438,8 @@ module.exports = {
   getXpSummary,
   getLootItemDetail,
   getLootSummary,
+  getMobDetail,
+  getMobSummary,
   getParserAbilityEvents,
   getParserSummary,
   getRespawnDeathRows,

@@ -17,6 +17,9 @@ const state = {
   lootSlot: '',
   lootMaxLevel: '',
   lootSort: 'lastSeen',
+  mobData: null,
+  selectedMobName: null,
+  mobSearch: '',
   healingSelectedSource: null,
   healingSelectedAbilityKey: null,
   petAssignments: loadPetAssignments(),
@@ -145,6 +148,16 @@ const els = {
   lootDetailTitle: document.querySelector('#loot-detail-title'),
   lootDetailSubtitle: document.querySelector('#loot-detail-subtitle'),
   lootDetail: document.querySelector('#loot-detail'),
+  mobCount: document.querySelector('#mob-count'),
+  mobAbilityCount: document.querySelector('#mob-ability-count'),
+  mobDropCount: document.querySelector('#mob-drop-count'),
+  mobKillCount: document.querySelector('#mob-kill-count'),
+  mobUpdated: document.querySelector('#mob-updated'),
+  mobSearch: document.querySelector('#mob-search'),
+  mobList: document.querySelector('#mob-list'),
+  mobDetailTitle: document.querySelector('#mob-detail-title'),
+  mobDetailSubtitle: document.querySelector('#mob-detail-subtitle'),
+  mobDetail: document.querySelector('#mob-detail'),
   mapActor: document.querySelector('#map-actor'),
   mapX: document.querySelector('#map-x'),
   mapY: document.querySelector('#map-y'),
@@ -262,6 +275,18 @@ function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[ch]);
+}
+
+function itemArtSrc(item) {
+  const url = String(item?.artUrl || '').trim();
+  return url ? `/api/item-art?url=${encodeURIComponent(url)}` : '';
+}
+
+function itemIconMarkup(item, className = 'loot-row-icon') {
+  const src = itemArtSrc(item);
+  const fallback = escapeHtml(String(item?.iconKey || item?.itemType || '?').slice(0, 2).toUpperCase());
+  if (!src) return `<span class="${className}">${fallback}</span>`;
+  return `<span class="${className} has-art"><img src="${escapeHtml(src)}" alt="" loading="lazy" onerror="this.remove(); this.parentElement.classList.remove('has-art'); this.parentElement.textContent='${fallback}';"></span>`;
 }
 
 function loadPetAssignments() {
@@ -2740,7 +2765,7 @@ function renderLootList(rows = []) {
     const typeLine = [row.rarity, row.equipSlotName || row.displaySubtype || row.itemType, row.requiredLevel ? `Req ${row.requiredLevel}` : ''].filter(Boolean).join(' / ');
     const sideLabel = row.itemType === 'Weapon' && row.weaponDps ? `${formatRate(row.weaponDps)} DPS` : row.armorValue ? `${formatNumber(row.armorValue)} Armor` : flags || 'seen';
     button.innerHTML = `
-      <span class="loot-row-icon">${escapeHtml(String(row.iconKey || row.itemType || '?').slice(0, 2).toUpperCase())}</span>
+      ${itemIconMarkup(row)}
       <span class="loot-row-main">
         <strong>${escapeHtml(row.name)}</strong>
         <span>${escapeHtml(typeLine)}</span>
@@ -2890,8 +2915,11 @@ function renderLootDetail(item) {
   els.lootDetail.innerHTML = `
     <article class="item-tooltip ${rarityClass(item.rarity)}">
       <header class="item-tooltip-head">
-        <h3>${escapeHtml(item.name)}</h3>
-        <span>${escapeHtml(headerMeta)}</span>
+        ${itemIconMarkup(item, 'item-tooltip-art')}
+        <div>
+          <h3>${escapeHtml(item.name)}</h3>
+          <span>${escapeHtml(headerMeta)}</span>
+        </div>
       </header>
       <div class="item-flags">${flags.map((flag) => `<span>${escapeHtml(flag)}</span>`).join('')}</div>
       <div class="item-type-line">${escapeHtml(typeLine)}</div>
@@ -2960,6 +2988,129 @@ async function refreshLoot() {
   els.status.textContent = data.totals.lastEventAt ? `Loot data through ${formatTime(data.totals.lastEventAt)}` : 'Waiting for loot data';
 }
 
+function formatLevelRange(row) {
+  if (row.levelMin !== null && row.levelMax !== null && row.levelMin !== undefined && row.levelMax !== undefined) {
+    return Number(row.levelMin) === Number(row.levelMax) ? `Level ${formatNumber(row.levelMin)}` : `Levels ${formatNumber(row.levelMin)}-${formatNumber(row.levelMax)}`;
+  }
+  return 'Level unknown';
+}
+
+function renderMobMetrics(data) {
+  const totals = data.totals || {};
+  els.mobCount.textContent = formatNumber(totals.mobs || 0);
+  els.mobAbilityCount.textContent = formatNumber(totals.withAbilities || 0);
+  els.mobDropCount.textContent = formatNumber(totals.withDrops || 0);
+  els.mobKillCount.textContent = formatNumber(totals.kills || 0);
+  els.mobUpdated.textContent = totals.lastSeenAt ? `Updated ${formatTime(totals.lastSeenAt)}` : 'Waiting';
+}
+
+function renderMobList(rows = []) {
+  if (!rows.length) {
+    state.selectedMobName = null;
+    els.mobList.innerHTML = '<div class="empty">No matching mobs.</div>';
+    renderMobDetail(null);
+    return;
+  }
+  if (!state.selectedMobName || !rows.some((row) => row.name === state.selectedMobName)) {
+    state.selectedMobName = rows[0].name;
+  }
+  els.mobList.replaceChildren(...rows.map((row) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `mob-row${row.name === state.selectedMobName ? ' selected' : ''}`;
+    button.dataset.mobName = row.name;
+    const meta = [formatLevelRange(row), row.className || 'Class unknown', row.race].filter(Boolean).join(' / ');
+    button.innerHTML = `
+      <span class="mob-row-main">
+        <strong>${escapeHtml(row.name)}</strong>
+        <span>${escapeHtml(meta)}</span>
+      </span>
+      <span class="mob-row-side">
+        <strong>${formatNumber(row.dropCount || 0)}</strong>
+        <span>${formatNumber(row.abilityCount || 0)} abilities</span>
+      </span>
+    `;
+    button.addEventListener('click', async () => {
+      state.selectedMobName = row.name;
+      renderMobList(state.mobData?.rows || []);
+      await loadMobDetail(row.name);
+    });
+    return button;
+  }));
+}
+
+function renderMobDetail(mob) {
+  if (!mob) {
+    els.mobDetailTitle.textContent = 'Mob Detail';
+    els.mobDetailSubtitle.textContent = 'Select a mob';
+    els.mobDetail.innerHTML = '<div class="empty">No mob selected.</div>';
+    return;
+  }
+  els.mobDetailTitle.textContent = mob.name;
+  els.mobDetailSubtitle.textContent = [formatLevelRange(mob), mob.className || 'Class unknown'].filter(Boolean).join(' / ');
+  const location = mob.lastLocation
+    ? `X ${formatCoord(mob.lastLocation.x)} / Y ${formatCoord(mob.lastLocation.y)} / Z ${formatCoord(mob.lastLocation.z)}`
+    : 'No location recorded';
+  els.mobDetail.innerHTML = `
+    <section class="mob-detail-card">
+      <div><span>Class</span><strong>${escapeHtml(mob.className || '-')}</strong></div>
+      <div><span>Race</span><strong>${escapeHtml(mob.race || '-')}</strong></div>
+      <div><span>Seen</span><strong>${formatNumber(mob.seenCount || 0)}</strong></div>
+      <div><span>Kills</span><strong>${formatNumber(mob.killCount || 0)}</strong></div>
+      <div><span>Damage Out</span><strong>${formatNumber(mob.damageDone || 0)}</strong></div>
+      <div><span>Damage In</span><strong>${formatNumber(mob.damageTaken || 0)}</strong></div>
+    </section>
+    <section class="loot-detail-section">
+      <h3>Last Location</h3>
+      <div class="mob-location-line">${escapeHtml(location)}${mob.lastLocation?.observedAt ? ` / ${formatTime(mob.lastLocation.observedAt)}` : ''}</div>
+    </section>
+    <section class="loot-detail-section">
+      <h3>Abilities Used</h3>
+      <div class="loot-instance-list">
+        ${(mob.abilities || []).length ? mob.abilities.map((ability) => `
+          <div class="mob-ability-line">
+            <span>${escapeHtml(ability.ability)}</span>
+            <span>${formatNumber(ability.count || 0)} uses</span>
+            <span>${formatNumber(ability.totalDamage || 0)}</span>
+          </div>
+        `).join('') : '<div class="empty">No offensive abilities recorded.</div>'}
+      </div>
+    </section>
+    <section class="loot-detail-section">
+      <h3>Drops</h3>
+      <div class="loot-instance-list">
+        ${(mob.drops || []).length ? mob.drops.map((drop) => `
+          <div class="mob-drop-line ${rarityClass(drop.rarity)}">
+            <span>${escapeHtml(drop.name)}</span>
+            <span>${escapeHtml(drop.rarity || '-')}</span>
+            <span>${formatNumber(drop.count || 0)} seen</span>
+          </div>
+        `).join('') : '<div class="empty">No drops linked yet.</div>'}
+      </div>
+    </section>
+  `;
+}
+
+async function loadMobDetail(name = state.selectedMobName) {
+  if (!name) {
+    renderMobDetail(null);
+    return;
+  }
+  const detail = await fetchJson(`/api/mobs/detail?name=${encodeURIComponent(name)}`);
+  renderMobDetail(detail);
+}
+
+async function refreshMobs() {
+  const params = new URLSearchParams({ limit: '180' });
+  if (state.mobSearch) params.set('search', state.mobSearch);
+  const data = await fetchJson(`/api/mobs/summary?${params}`);
+  state.mobData = data;
+  renderMobMetrics(data);
+  renderMobList(data.rows || []);
+  await loadMobDetail();
+  els.status.textContent = data.totals.lastSeenAt ? `Mob data through ${formatTime(data.totals.lastSeenAt)}` : 'Waiting for mob data';
+}
+
 async function refreshDiagnostics() {
   const params = displayParams();
   const unresolvedParams = displayParams({ window: String(state.windowSeconds) });
@@ -2993,6 +3144,7 @@ async function refresh() {
         else if (state.tab === 'xp') await refreshXp();
         else if (state.tab === 'encounters') await refreshEncounters();
         else if (state.tab === 'loot') await refreshLoot();
+        else if (state.tab === 'mobs') await refreshMobs();
         else if (state.tab === 'map') await refreshMap();
         else await refreshDiagnostics();
       } catch (error) {
@@ -3085,6 +3237,14 @@ if (els.lootSortFilter) {
     state.lootSort = els.lootSortFilter.value || 'lastSeen';
     state.selectedLootItemId = null;
     if (state.tab === 'loot') await refreshLoot();
+  });
+}
+
+if (els.mobSearch) {
+  els.mobSearch.addEventListener('input', async () => {
+    state.mobSearch = els.mobSearch.value.trim();
+    state.selectedMobName = null;
+    if (state.tab === 'mobs') await refreshMobs();
   });
 }
 

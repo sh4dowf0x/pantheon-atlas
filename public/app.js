@@ -2912,6 +2912,19 @@ function renderLootDetail(item) {
     ].filter(Boolean);
     return bits.join(' / ');
   };
+  const dropSourceMetaLine = (source) => {
+    const coords = [source.x, source.y, source.z].every((value) => Number.isFinite(Number(value)))
+      ? `${formatNumber(source.x)}, ${formatNumber(source.z)}, ${formatNumber(source.y)}`
+      : '';
+    const bits = [
+      source.level ? `L${formatNumber(source.level)}` : null,
+      source.zoneName || source.mapKey || null,
+      coords,
+      Array.isArray(source.methods) && source.methods.length ? source.methods.map((method) => method.replace(/_/g, ' ')).join(', ') : null,
+      Array.isArray(source.confidences) && source.confidences.length ? `${source.confidences.join('/')} confidence` : null
+    ].filter(Boolean);
+    return bits.join(' / ');
+  };
   els.lootDetail.innerHTML = `
     <article class="item-tooltip ${rarityClass(item.rarity)}">
       <header class="item-tooltip-head">
@@ -2934,6 +2947,23 @@ function renderLootDetail(item) {
         <span>Weight: ${item.weight ?? '-'}</span>
       </footer>
     </article>
+    <section class="loot-detail-section">
+      <h3>Dropped By</h3>
+      <div class="loot-drop-list">
+        ${(item.dropSources || []).length ? item.dropSources.map((source) => `
+          <div class="loot-drop-line">
+            <div>
+              <strong>${escapeHtml(source.name || 'Unknown source')}</strong>
+              <span>${escapeHtml(dropSourceMetaLine(source))}</span>
+            </div>
+            <div>
+              <strong>${formatNumber(source.count || 0)}</strong>
+              <span>${formatTime(source.lastSeen)}</span>
+            </div>
+          </div>
+        `).join('') : '<div class="empty">No drop sources recorded.</div>'}
+      </div>
+    </section>
     <section class="loot-detail-section">
       <h3>Inventory Instances</h3>
       <div class="loot-instance-list">

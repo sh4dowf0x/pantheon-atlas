@@ -803,6 +803,84 @@ function sourceNameFromLootEvent(row = {}) {
   return row.source || acquisitionFromLootEvent(row).source?.name || null;
 }
 
+function lootSourceMapContext(source = {}) {
+  const x = Number(source.x);
+  const y = Number(source.y);
+  const z = Number(source.z);
+  if (![x, y, z].every(Number.isFinite)) return { x: null, y: null, z: null, mapKey: null, zoneName: null };
+  const mapKey = mapKeyForCoordinates(x, z, y);
+  return {
+    x,
+    y,
+    z,
+    mapKey,
+    zoneName: mapKey === 'halnir_cave'
+      ? 'Halnir Cave'
+      : mapKey === 'goblin_cave'
+        ? 'Goblin Cave'
+        : mapKey === 'kingsreach'
+          ? 'Avendyr/Kingsreach'
+          : null
+  };
+}
+
+function getLootDropSources(db, itemId) {
+  const rows = db.prepare(`
+    SELECT observed_at observedAt, event_type eventType, source, raw_json rawJson
+    FROM loot_events
+    WHERE item_id = ?
+      AND (source IS NOT NULL OR raw_json LIKE '%"acquisition"%')
+    ORDER BY observed_at DESC, id DESC
+    LIMIT 500
+  `).all(String(itemId));
+  const bySource = new Map();
+  for (const row of rows) {
+    const acquisition = acquisitionFromLootEvent(row);
+    const sourceName = sourceNameFromLootEvent(row);
+    if (!sourceName || /^player$/i.test(sourceName)) continue;
+    const key = sourceName.toLowerCase();
+    const current = bySource.get(key) || {
+      name: sourceName,
+      count: 0,
+      firstSeen: row.observedAt,
+      lastSeen: row.observedAt,
+      methods: new Set(),
+      confidences: new Set(),
+      level: null,
+      entityType: null,
+      x: null,
+      y: null,
+      z: null,
+      mapKey: null,
+      zoneName: null
+    };
+    current.count += 1;
+    if (Date.parse(row.observedAt) < Date.parse(current.firstSeen)) current.firstSeen = row.observedAt;
+    if (Date.parse(row.observedAt) > Date.parse(current.lastSeen)) current.lastSeen = row.observedAt;
+    if (acquisition.method) current.methods.add(acquisition.method);
+    if (acquisition.confidence) current.confidences.add(acquisition.confidence);
+    const source = acquisition.source || {};
+    if (source.level !== undefined && source.level !== null && Number.isFinite(Number(source.level))) current.level = Number(source.level);
+    if (source.entityType) current.entityType = source.entityType;
+    const mapContext = lootSourceMapContext(source);
+    if (mapContext.mapKey || mapContext.x !== null) {
+      current.x = mapContext.x;
+      current.y = mapContext.y;
+      current.z = mapContext.z;
+      current.mapKey = mapContext.mapKey;
+      current.zoneName = mapContext.zoneName;
+    }
+    bySource.set(key, current);
+  }
+  return [...bySource.values()]
+    .map((source) => ({
+      ...source,
+      methods: [...source.methods],
+      confidences: [...source.confidences]
+    }))
+    .sort((left, right) => right.count - left.count || Date.parse(right.lastSeen) - Date.parse(left.lastSeen) || left.name.localeCompare(right.name));
+}
+
 function statValueFromStats(stats = {}, statName = '') {
   const wanted = String(statName || '').toLowerCase();
   if (!wanted) return null;
@@ -1053,6 +1131,7 @@ function getLootItemDetail(db, itemId) {
     rawJson: undefined,
     quantity: event.quantity === null || event.quantity === undefined ? null : Number(event.quantity)
   }));
+  item.dropSources = getLootDropSources(db, itemId).slice(0, 40);
   return item;
 }
 

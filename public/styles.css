@@ -1020,6 +1020,42 @@ th {
   display: grid;
 }
 
+.loot-drop-list {
+  display: grid;
+}
+
+.loot-drop-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px;
+  gap: 10px;
+  align-items: center;
+  min-height: 42px;
+  padding: 7px 10px;
+  border-bottom: 1px solid rgba(48, 55, 67, 0.65);
+  font-size: 12px;
+}
+
+.loot-drop-line strong,
+.loot-drop-line span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loot-drop-line strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.loot-drop-line span {
+  color: var(--muted);
+}
+
+.loot-drop-line > div:last-child {
+  text-align: right;
+}
+
 .loot-instance-line {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 86px;

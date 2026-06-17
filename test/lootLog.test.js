@@ -257,6 +257,12 @@ assert.equal(wolfFang.events[0].source, 'black roan wolf (rabid)');
 assert.equal(wolfFang.events[0].acquisition.method, 'recent_offensive_target');
 assert.equal(wolfFang.events[0].acquisition.confidence, 'low');
 assert.equal(wolfFang.events[0].acquisition.source.name, 'black roan wolf (rabid)');
+assert.equal(wolfFang.dropSources[0].name, 'black roan wolf (rabid)');
+assert.equal(wolfFang.dropSources[0].count, 1);
+assert.deepEqual(wolfFang.dropSources[0].methods, ['recent_offensive_target']);
+assert.deepEqual(wolfFang.dropSources[0].confidences, ['low']);
+assert.equal(wolfFang.dropSources[0].x, 2753.6104);
+assert.equal(wolfFang.dropSources[0].z, 2235.0076);
 
 store.close();
 fs.rmSync(tempDir, { recursive: true, force: true });

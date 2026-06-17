@@ -1414,11 +1414,55 @@ assert.equal(brineclawRow.disposition, 'prepared to attack');
 const vaelrisRow = petMapRows.find((row) => row.entityId === '76770000');
 assert.equal(vaelrisRow.priorityCandidate, true);
 
+const namedMobImportedAt = new Date().toISOString();
+store.db.prepare(`
+  INSERT INTO named_mobs (
+    shalazam_id, slug, name, location, zone, level_min, level_max, difficulty,
+    spawn, faction, source_url, imported_at, last_seen_source_at
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`).run(
+  9001,
+  'vaelris-the-deadheart',
+  'Vaelris the Deadheart',
+  'Deadheart clearing',
+  'Wilds End',
+  12,
+  14,
+  'Named',
+  null,
+  null,
+  'https://shalazam.info/monster/9001',
+  namedMobImportedAt,
+  namedMobImportedAt
+);
+store.db.prepare(`
+  INSERT INTO named_mob_aliases (
+    shalazam_id, alias, normalized_alias, role, confidence, source, first_seen, last_seen
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+`).run(
+  9001,
+  'Vaelris the Deadheart',
+  'vaelris the deadheart',
+  'named',
+  1,
+  'test',
+  namedMobImportedAt,
+  namedMobImportedAt
+);
+
 const mobSummary = getMobSummary(store.db, { search: 'Vaelris' });
 assert.equal(mobSummary.rows[0].name, 'Vaelris the Deadheart');
 assert.equal(mobSummary.rows[0].abilityCount, 1);
 assert.equal(mobSummary.rows[0].dropCount, 1);
+assert.equal(mobSummary.rows[0].dropEventCount, 1);
+assert.equal(mobSummary.rows[0].named, true);
+assert.equal(mobSummary.rows[0].zoneName, 'Wilds End');
+assert.ok(mobSummary.locations.some((row) => row.name === 'Wilds End'));
+const namedMobSummary = getMobSummary(store.db, { named: 'named', location: 'Wilds End', minLevel: '1', maxLevel: '99' });
+assert.equal(namedMobSummary.rows[0].name, 'Vaelris the Deadheart');
 const mobDetail = getMobDetail(store.db, 'Vaelris the Deadheart');
+assert.equal(mobDetail.named, true);
+assert.equal(mobDetail.location, 'Deadheart clearing');
 assert.equal(mobDetail.abilities[0].ability, 'Grave Hex');
 assert.equal(mobDetail.drops[0].name, 'Deadheart Charm');
 assert.equal(mobDetail.lastLocation.x, 4052.646);

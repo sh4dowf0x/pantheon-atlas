@@ -1320,20 +1320,58 @@ function buildMobIndex(db) {
     touch(mob, row.observedAt);
   }
 
+  const namedRows = db.prepare(`
+    SELECT a.normalized_alias normalizedAlias, a.confidence, nm.name, nm.location, nm.zone,
+           nm.level_min levelMin, nm.level_max levelMax, nm.source_url sourceUrl
+    FROM named_mob_aliases a
+    JOIN named_mobs nm ON nm.shalazam_id = a.shalazam_id
+    ORDER BY a.confidence DESC
+  `).all();
+  const namedByAlias = new Map();
+  for (const row of namedRows) {
+    if (!row.normalizedAlias || namedByAlias.has(row.normalizedAlias)) continue;
+    namedByAlias.set(row.normalizedAlias, row);
+  }
+  for (const mob of mobs.values()) {
+    const named = namedByAlias.get(mob.key);
+    if (!named) continue;
+    mob.named = true;
+    mob.namedName = named.name || mob.name;
+    mob.namedLocation = named.location || null;
+    mob.namedZone = named.zone || null;
+    mob.namedSourceUrl = named.sourceUrl || null;
+    if (mob.levelMin === null && Number.isFinite(Number(named.levelMin))) mob.levelMin = Number(named.levelMin);
+    if (mob.levelMax === null && Number.isFinite(Number(named.levelMax))) mob.levelMax = Number(named.levelMax);
+  }
+
   return mobs;
+}
+
+function mobZoneName(mob) {
+  const namedZone = String(mob.namedZone || '').trim();
+  if (namedZone) return namedZone;
+  const mapKey = mapKeyForCoordinates(mob.lastX, mob.lastZ, mob.lastY);
+  return mapKey && MAPS[mapKey]?.name ? MAPS[mapKey].name : null;
 }
 
 function publicMobRow(mob) {
   const abilities = [...mob.abilities.values()].sort((left, right) => right.count - left.count || left.ability.localeCompare(right.ability));
   const drops = [...mob.drops.values()].sort((left, right) => right.count - left.count || left.name.localeCompare(right.name));
   const inferredClass = mob.className ? null : inferClassFromAbilities(abilities.map((row) => row.ability));
+  const zoneName = mobZoneName(mob);
+  const dropEventCount = drops.reduce((sum, drop) => sum + Number(drop.count || 0), 0);
   return {
     key: mob.key,
     name: mob.name,
+    named: Boolean(mob.named),
+    namedName: mob.namedName || null,
+    namedSourceUrl: mob.namedSourceUrl || null,
     className: mob.className || (inferredClass?.className !== 'Unknown' ? inferredClass.className : null),
     classConfidence: mob.className ? 100 : inferredClass?.classConfidence || 0,
     race: mob.race || null,
     kind: mob.kind || null,
+    location: mob.namedLocation || zoneName || null,
+    zoneName,
     levelMin: mob.levelMin,
     levelMax: mob.levelMax,
     firstSeen: mob.firstSeen,
@@ -1341,6 +1379,7 @@ function publicMobRow(mob) {
     seenCount: mob.seenCount,
     abilityCount: abilities.length,
     dropCount: drops.length,
+    dropEventCount,
     damageDone: Number(mob.damageDone.toFixed(1)),
     damageTaken: Number(mob.damageTaken.toFixed(1)),
     combatEvents: mob.combatEvents,
@@ -1353,15 +1392,34 @@ function publicMobRow(mob) {
 
 function getMobSummary(db, options = {}) {
   const search = String(options.search || '').trim().toLowerCase();
-  const limit = Math.max(1, Math.min(500, Number(options.limit) || 160));
-  const rows = [...buildMobIndex(db).values()]
+  const location = String(options.location || '').trim();
+  const named = String(options.named || '').trim().toLowerCase();
+  const minLevel = Number(options.minLevel || 0);
+  const maxLevel = Number(options.maxLevel || 0);
+  const hasMinLevel = Number.isFinite(minLevel) && minLevel > 0;
+  const hasMaxLevel = Number.isFinite(maxLevel) && maxLevel > 0;
+  const limit = Math.max(1, Math.min(1000, Number(options.limit) || 250));
+  const searchedRows = [...buildMobIndex(db).values()]
     .map(publicMobRow)
     .filter((row) => !search || [
       row.name,
+      row.location,
+      row.zoneName,
       row.className,
       row.race,
-      row.kind
-    ].filter(Boolean).join(' ').toLowerCase().includes(search))
+      row.kind,
+      row.named ? 'named' : null
+    ].filter(Boolean).join(' ').toLowerCase().includes(search));
+  const locationCounts = new Map();
+  for (const row of searchedRows) {
+    const label = row.zoneName || row.location || 'Unknown';
+    locationCounts.set(label, (locationCounts.get(label) || 0) + 1);
+  }
+  const rows = searchedRows
+    .filter((row) => !location || (row.zoneName || row.location || 'Unknown') === location)
+    .filter((row) => named === 'named' ? row.named : named === 'regular' ? !row.named : true)
+    .filter((row) => !hasMinLevel || (row.levelMax !== null && row.levelMax !== undefined && Number(row.levelMax) >= minLevel))
+    .filter((row) => !hasMaxLevel || (row.levelMin !== null && row.levelMin !== undefined && Number(row.levelMin) <= maxLevel))
     .sort((left, right) => Date.parse(right.lastSeen || 0) - Date.parse(left.lastSeen || 0) || left.name.localeCompare(right.name));
   return {
     generatedAt: new Date().toISOString(),
@@ -1372,6 +1430,9 @@ function getMobSummary(db, options = {}) {
       kills: rows.reduce((sum, row) => sum + Number(row.killCount || 0), 0),
       lastSeenAt: rows[0]?.lastSeen || null
     },
+    locations: [...locationCounts.entries()]
+      .map(([name, count]) => ({ name, count }))
+      .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name)),
     rows: rows.slice(0, limit)
   };
 }
@@ -3420,6 +3481,10 @@ function createServer(store, options = {}) {
       if (url.pathname === '/api/mobs/summary') {
         sendJson(res, 200, getMobSummary(db, {
           search: url.searchParams.get('search') || '',
+          location: url.searchParams.get('location') || '',
+          named: url.searchParams.get('named') || '',
+          minLevel: url.searchParams.get('minLevel') || '',
+          maxLevel: url.searchParams.get('maxLevel') || '',
           limit: Number(url.searchParams.get('limit') || 160)
         }));
         return;

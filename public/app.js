@@ -20,6 +20,10 @@ const state = {
   mobData: null,
   selectedMobName: null,
   mobSearch: '',
+  mobLocation: '',
+  mobNamed: '',
+  mobMinLevel: '',
+  mobMaxLevel: '',
   healingSelectedSource: null,
   healingSelectedAbilityKey: null,
   petAssignments: loadPetAssignments(),
@@ -154,6 +158,10 @@ const els = {
   mobKillCount: document.querySelector('#mob-kill-count'),
   mobUpdated: document.querySelector('#mob-updated'),
   mobSearch: document.querySelector('#mob-search'),
+  mobLocationFilter: document.querySelector('#mob-location-filter'),
+  mobNamedFilter: document.querySelector('#mob-named-filter'),
+  mobMinLevel: document.querySelector('#mob-min-level'),
+  mobMaxLevel: document.querySelector('#mob-max-level'),
   mobList: document.querySelector('#mob-list'),
   mobDetailTitle: document.querySelector('#mob-detail-title'),
   mobDetailSubtitle: document.querySelector('#mob-detail-subtitle'),
@@ -3034,6 +3042,17 @@ function renderMobMetrics(data) {
   els.mobUpdated.textContent = totals.lastSeenAt ? `Updated ${formatTime(totals.lastSeenAt)}` : 'Waiting';
 }
 
+function updateMobFilterOptions(data) {
+  if (!els.mobLocationFilter) return;
+  const locationValue = els.mobLocationFilter.value;
+  els.mobLocationFilter.replaceChildren(
+    new Option('All locations', ''),
+    ...(data.locations || []).map((row) => new Option(`${row.name} (${row.count})`, row.name))
+  );
+  els.mobLocationFilter.value = [...els.mobLocationFilter.options].some((option) => option.value === locationValue) ? locationValue : '';
+  state.mobLocation = els.mobLocationFilter.value;
+}
+
 function renderMobList(rows = []) {
   if (!rows.length) {
     state.selectedMobName = null;
@@ -3044,29 +3063,54 @@ function renderMobList(rows = []) {
   if (!state.selectedMobName || !rows.some((row) => row.name === state.selectedMobName)) {
     state.selectedMobName = rows[0].name;
   }
-  els.mobList.replaceChildren(...rows.map((row) => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = `mob-row${row.name === state.selectedMobName ? ' selected' : ''}`;
-    button.dataset.mobName = row.name;
+  const table = document.createElement('table');
+  table.className = 'mob-table';
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Location</th>
+        <th>Named</th>
+        <th>Level</th>
+        <th class="number">Drops Recorded</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  `;
+  const body = table.querySelector('tbody');
+  body.replaceChildren(...rows.map((row) => {
+    const tr = document.createElement('tr');
+    tr.className = `mob-table-row${row.name === state.selectedMobName ? ' selected' : ''}`;
+    tr.dataset.mobName = row.name;
+    tr.tabIndex = 0;
     const meta = [formatLevelRange(row), row.className || 'Class unknown', row.race].filter(Boolean).join(' / ');
-    button.innerHTML = `
-      <span class="mob-row-main">
+    const location = row.zoneName || row.location || '-';
+    tr.innerHTML = `
+      <td>
+        <span class="mob-table-main">
         <strong>${escapeHtml(row.name)}</strong>
         <span>${escapeHtml(meta)}</span>
       </span>
-      <span class="mob-row-side">
-        <strong>${formatNumber(row.dropCount || 0)}</strong>
-        <span>${formatNumber(row.abilityCount || 0)} abilities</span>
-      </span>
+      </td>
+      <td>${escapeHtml(location)}</td>
+      <td>${row.named ? '<span class="pill success">Named</span>' : '<span class="pill muted">No</span>'}</td>
+      <td>${escapeHtml(formatLevelRange(row).replace(/^Levels? /, ''))}</td>
+      <td class="number">${formatNumber(row.dropEventCount || 0)}</td>
     `;
-    button.addEventListener('click', async () => {
+    const selectRow = async () => {
       state.selectedMobName = row.name;
       renderMobList(state.mobData?.rows || []);
       await loadMobDetail(row.name);
+    };
+    tr.addEventListener('click', selectRow);
+    tr.addEventListener('keydown', async (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      await selectRow();
     });
-    return button;
+    return tr;
   }));
+  els.mobList.replaceChildren(table);
 }
 
 function renderMobDetail(mob) {
@@ -3083,6 +3127,8 @@ function renderMobDetail(mob) {
     : 'No location recorded';
   els.mobDetail.innerHTML = `
     <section class="mob-detail-card">
+      <div><span>Named</span><strong>${mob.named ? 'Yes' : 'No'}</strong></div>
+      <div><span>Zone</span><strong>${escapeHtml(mob.zoneName || mob.location || '-')}</strong></div>
       <div><span>Class</span><strong>${escapeHtml(mob.className || '-')}</strong></div>
       <div><span>Race</span><strong>${escapeHtml(mob.race || '-')}</strong></div>
       <div><span>Seen</span><strong>${formatNumber(mob.seenCount || 0)}</strong></div>
@@ -3131,11 +3177,16 @@ async function loadMobDetail(name = state.selectedMobName) {
 }
 
 async function refreshMobs() {
-  const params = new URLSearchParams({ limit: '180' });
+  const params = new URLSearchParams({ limit: '300' });
   if (state.mobSearch) params.set('search', state.mobSearch);
+  if (state.mobLocation) params.set('location', state.mobLocation);
+  if (state.mobNamed) params.set('named', state.mobNamed);
+  if (state.mobMinLevel) params.set('minLevel', state.mobMinLevel);
+  if (state.mobMaxLevel) params.set('maxLevel', state.mobMaxLevel);
   const data = await fetchJson(`/api/mobs/summary?${params}`);
   state.mobData = data;
   renderMobMetrics(data);
+  updateMobFilterOptions(data);
   renderMobList(data.rows || []);
   await loadMobDetail();
   els.status.textContent = data.totals.lastSeenAt ? `Mob data through ${formatTime(data.totals.lastSeenAt)}` : 'Waiting for mob data';
@@ -3273,6 +3324,34 @@ if (els.lootSortFilter) {
 if (els.mobSearch) {
   els.mobSearch.addEventListener('input', async () => {
     state.mobSearch = els.mobSearch.value.trim();
+    state.selectedMobName = null;
+    if (state.tab === 'mobs') await refreshMobs();
+  });
+}
+if (els.mobLocationFilter) {
+  els.mobLocationFilter.addEventListener('change', async () => {
+    state.mobLocation = els.mobLocationFilter.value;
+    state.selectedMobName = null;
+    if (state.tab === 'mobs') await refreshMobs();
+  });
+}
+if (els.mobNamedFilter) {
+  els.mobNamedFilter.addEventListener('change', async () => {
+    state.mobNamed = els.mobNamedFilter.value;
+    state.selectedMobName = null;
+    if (state.tab === 'mobs') await refreshMobs();
+  });
+}
+if (els.mobMinLevel) {
+  els.mobMinLevel.addEventListener('input', async () => {
+    state.mobMinLevel = els.mobMinLevel.value.trim();
+    state.selectedMobName = null;
+    if (state.tab === 'mobs') await refreshMobs();
+  });
+}
+if (els.mobMaxLevel) {
+  els.mobMaxLevel.addEventListener('input', async () => {
+    state.mobMaxLevel = els.mobMaxLevel.value.trim();
     state.selectedMobName = null;
     if (state.tab === 'mobs') await refreshMobs();
   });

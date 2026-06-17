@@ -28,6 +28,11 @@ function localCharacterEntityId(record) {
   return characterId !== null && characterId >= 0 ? `scanner:character:${Math.trunc(characterId)}` : scannerEntityId(record);
 }
 
+function isKnownQuestGroundSpawn(record) {
+  const name = String(record.Name || '').trim();
+  return /\bcorroded key\b/i.test(name);
+}
+
 function normalizeEntityKind(record) {
   const entityType = String(record.EntityType || '').toLowerCase();
   const kind = String(record.Kind || '').toLowerCase();
@@ -44,6 +49,7 @@ function normalizeEntityKind(record) {
   if (metadata.includes('resource') || metadata.includes('harvest')) return 'resource';
   if (entityType === 'groundspawn' || runtimeType.includes('networkworlditem')) {
     if (/\b(chest|lootcratelockbox|lootcrate_lockbox|lockbox|lock_box)\b/.test(metadata)) return 'chest';
+    if (isKnownQuestGroundSpawn(record)) return 'quest';
     if (/\b(quest|treasure)\b/.test(metadata)) return 'quest';
   }
   return 'mob';

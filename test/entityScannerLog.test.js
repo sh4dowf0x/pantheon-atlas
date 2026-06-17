@@ -137,6 +137,30 @@ assert.equal(groundSpawnResourceEvents.length, 1);
 assert.equal(groundSpawnResourceEvents[0].eventType, 'harvest_node');
 assert.equal(groundSpawnResourceEvents[0].ability, 'entityKind:resource');
 
+const corrodedKeyLine = JSON.stringify({
+  TimestampUtc: '2026-06-17T07:24:04.041374Z',
+  EventType: 'seen',
+  EntityType: 'GroundSpawn',
+  RuntimeType: 'Il2Cpp.NetworkWorldItem',
+  NetworkId: 1891,
+  CharacterId: -1,
+  Name: 'Corroded Key',
+  Kind: 'Default',
+  Role: 'GroundSpawn',
+  Tier: 'RightClick, HasModel, Collidable, DefaultScale',
+  Level: 0,
+  X: 12,
+  Y: 22,
+  Z: 32,
+  IsLocalPlayer: false
+});
+
+const corrodedKeyEvents = parseEntityScannerLine(corrodedKeyLine);
+assert.equal(corrodedKeyEvents.length, 1);
+assert.equal(corrodedKeyEvents[0].eventType, 'world_entity');
+assert.equal(corrodedKeyEvents[0].target, 'Corroded Key');
+assert.equal(corrodedKeyEvents[0].ability, 'entityKind:quest');
+
 assert.deepEqual(parseEntityScannerLine('{not json'), []);
 
 console.log('entity scanner log tests passed');

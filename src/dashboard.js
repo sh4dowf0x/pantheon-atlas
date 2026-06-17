@@ -2688,6 +2688,7 @@ function inferredQuestItemEntity(name, asset, rawText) {
   if (!value) return false;
   if (/gusler'?s enchanted toenail/i.test(value)) return true;
   if (/\bdusty satchel\b/i.test(value)) return true;
+  if (/\bcorroded key\b/i.test(value)) return true;
   if (/\bstone fragment\b/i.test(value)) return true;
   if (/(?:fragment|relic|shard|sigil|seal|tablet|idol|token|medallion|artifact|glyph|totem)\b/i.test(value)) return true;
   if (/LooseLoot|ScrapMetal|Quest|Treasure/i.test(rawAsset)) {

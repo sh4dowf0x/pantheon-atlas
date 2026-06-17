@@ -1194,6 +1194,20 @@ store.insertEvent({
   observedAt: new Date().toISOString(),
   eventType: 'world_entity',
   source: 'Player',
+  target: 'Corroded Key',
+  ability: 'entityKind:mob',
+  amount: 0,
+  damageType: '84080002',
+  x: 3032.901,
+  y: 490.442,
+  z: -3692.801,
+  rawText: 'Corroded Key | GroundSpawn',
+  eventKey: 'corroded-key-quest-test'
+});
+store.insertEvent({
+  observedAt: new Date().toISOString(),
+  eventType: 'world_entity',
+  source: 'Player',
   target: 'Krex',
   ability: 'entityKind:mob',
   amount: 1,
@@ -1371,6 +1385,9 @@ assert.equal(toenailRow.questItem, true);
 const satchelRow = petMapRows.find((row) => row.name === 'Dusty Satchel');
 assert.equal(satchelRow.kind, 'quest');
 assert.equal(satchelRow.questItem, true);
+const corrodedKeyRow = petMapRows.find((row) => row.name === 'Corroded Key');
+assert.equal(corrodedKeyRow.kind, 'quest');
+assert.equal(corrodedKeyRow.questItem, true);
 const lockBoxRow = petMapRows.find((row) => row.name === "Ringleader's Lock Box");
 assert.equal(lockBoxRow.kind, 'chest');
 assert.equal(lockBoxRow.questItem, false);

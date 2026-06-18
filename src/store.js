@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
 const { abilityRegistryRecordFromEvent } = require('./abilityRegistry');
+const { seedKnownNamedMobs } = require('./namedMobs');
 
 function parseJsonObject(value) {
   try {
@@ -322,6 +323,23 @@ function ensureSchema(db) {
 
     CREATE INDEX IF NOT EXISTS idx_named_camp_events_time
       ON named_camp_events(observed_at DESC, id DESC);
+
+    CREATE TABLE IF NOT EXISTS community_mobs (
+      key TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      normalized_name TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      source_install_id TEXT,
+      first_seen TEXT,
+      last_seen TEXT,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_community_mobs_name
+      ON community_mobs(normalized_name);
+
+    CREATE INDEX IF NOT EXISTS idx_community_mobs_seen
+      ON community_mobs(last_seen DESC, name);
   `);
 
   const columns = new Set(db.prepare('PRAGMA table_info(game_events)').all().map((column) => column.name));
@@ -338,6 +356,7 @@ function openStore(databasePath) {
   db.exec('PRAGMA busy_timeout = 3000');
   db.exec('PRAGMA journal_mode = WAL');
   ensureSchema(db);
+  seedKnownNamedMobs(db);
 
   const insertPacket = db.prepare(`
     INSERT INTO raw_packets (

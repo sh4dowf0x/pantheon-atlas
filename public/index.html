@@ -23,6 +23,7 @@
             <button class="tab-button" type="button" data-tab="mobs">Mobs</button>
             <button class="tab-button" type="button" data-tab="map">Map</button>
             <button class="tab-button" type="button" data-tab="diagnostics">Diagnostics</button>
+            <button class="tab-button" type="button" data-tab="settings">Settings</button>
           </div>
           <div class="controls" aria-label="Time range">
             <button class="range-button" type="button" data-window="60">1m</button>
@@ -259,7 +260,10 @@
           <div class="panel loot-list-panel">
             <div class="panel-head">
               <h2>Item Database</h2>
-              <span id="loot-updated">-</span>
+              <div class="panel-actions">
+                <button id="loot-sync-items" class="external-link" type="button">Sync Items</button>
+                <span id="loot-updated">-</span>
+              </div>
             </div>
             <div class="loot-filters">
               <input id="loot-search" type="search" autocomplete="off" placeholder="Search items">
@@ -307,7 +311,10 @@
           <div class="panel mob-list-panel">
             <div class="panel-head">
               <h2>Mob Database</h2>
-              <span id="mob-updated">-</span>
+              <div class="panel-actions">
+                <button id="mob-sync-mobs" class="external-link" type="button">Sync Mobs</button>
+                <span id="mob-updated">-</span>
+              </div>
             </div>
             <div class="mob-filters">
               <input id="mob-search" type="search" autocomplete="off" placeholder="Search mobs">
@@ -557,42 +564,54 @@
           <div id="unresolved-actors" class="unresolved-list"></div>
         </section>
 
-        <section class="panel community-sync-panel">
-          <div class="panel-head">
-            <h2>Community Item Sync</h2>
-            <span id="community-sync-state">Disabled</span>
-          </div>
-          <div class="community-sync-controls">
-            <label>
-              <input id="community-sync-enabled" type="checkbox">
-              <span>Enable</span>
-            </label>
-            <label>
-              <input id="community-sync-download" type="checkbox">
-              <span>Download updates</span>
-            </label>
-            <label>
-              <input id="community-sync-upload" type="checkbox">
-              <span>Upload item changes</span>
-            </label>
-            <select id="community-sync-mode">
-              <option value="worker">Worker</option>
-              <option value="r2">Direct R2</option>
-            </select>
-            <input id="community-sync-access-key" type="password" autocomplete="off" placeholder="R2 access key">
-            <input id="community-sync-secret-key" type="password" autocomplete="off" placeholder="R2 secret key">
-            <button id="community-sync-save-keys" class="external-link" type="button">Save Keys</button>
-            <button id="community-sync-check" class="external-link" type="button">Check Updates</button>
-            <button id="community-sync-now" class="external-link" type="button">Upload Now</button>
-          </div>
-          <pre id="community-sync-details"></pre>
-        </section>
-
         <section class="lab-grid">
           <article class="panel">
             <div class="panel-head"><h2>Game Events</h2><span>latest 40</span></div>
             <div id="events" class="rows"></div>
           </article>
+        </section>
+      </section>
+
+      <section id="settings-view" class="view">
+        <section class="settings-grid">
+          <section class="panel community-sync-panel">
+            <div class="panel-head">
+              <h2>Community Item Sync</h2>
+              <span id="community-sync-state">Disabled</span>
+            </div>
+            <div class="community-sync-controls">
+              <label>
+                <input id="community-sync-enabled" type="checkbox">
+                <span>Enable</span>
+              </label>
+              <label>
+                <input id="community-sync-download" type="checkbox">
+                <span>Download updates</span>
+              </label>
+              <label>
+                <input id="community-sync-upload" type="checkbox">
+                <span>Upload item changes</span>
+              </label>
+              <select id="community-sync-mode">
+                <option value="worker">Worker</option>
+                <option value="r2">Direct R2</option>
+              </select>
+              <label>
+                <span>Download every</span>
+                <input id="community-sync-download-minutes" type="number" min="1" max="1440" step="1">
+              </label>
+              <label>
+                <span>Upload every</span>
+                <input id="community-sync-upload-minutes" type="number" min="1" max="1440" step="1">
+              </label>
+              <input id="community-sync-access-key" type="password" autocomplete="off" placeholder="R2 access key">
+              <input id="community-sync-secret-key" type="password" autocomplete="off" placeholder="R2 secret key">
+              <button id="community-sync-save-keys" class="external-link" type="button">Save Keys</button>
+              <button id="community-sync-check" class="external-link" type="button">Check Updates</button>
+              <button id="community-sync-now" class="external-link" type="button">Upload Now</button>
+            </div>
+            <pre id="community-sync-details"></pre>
+          </section>
         </section>
       </section>
     </main>

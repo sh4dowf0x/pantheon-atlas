@@ -1,5 +1,7 @@
 const SHALAZAM_BASE_URL = 'https://shalazam.info';
 
+const KNOWN_NAMED_MOBS = require('./named-mobs.seed.json');
+
 function decodeHtml(value = '') {
   return String(value)
     .replace(/&nbsp;/g, ' ')
@@ -188,28 +190,50 @@ function upsertNamedMob(db, mob, importedAt = new Date().toISOString()) {
     `).run(mob.shalazamId, mob.name, normalized, importedAt, importedAt);
   }
 
-  if (mob.spawnPoint && Number.isFinite(Number(mob.spawnPoint.x)) && Number.isFinite(Number(mob.spawnPoint.y))) {
-    db.prepare(`
-      INSERT INTO named_spawn_points (
-        shalazam_id, x, y, z, radius, map_id, source, confidence, first_seen, last_seen
-      ) VALUES (?, ?, ?, ?, 35, ?, 'shalazam', ?, ?, ?)
-      ON CONFLICT(shalazam_id, source, x, y, z) DO UPDATE SET
-        radius = excluded.radius,
-        map_id = COALESCE(excluded.map_id, named_spawn_points.map_id),
-        confidence = MAX(named_spawn_points.confidence, excluded.confidence),
-        last_seen = excluded.last_seen
-    `).run(
-      mob.shalazamId,
-      Number(mob.spawnPoint.x),
-      Number(mob.spawnPoint.y),
-      Number.isFinite(Number(mob.spawnPoint.z)) ? Number(mob.spawnPoint.z) : 0,
-      mob.spawnPoint.mapId || null,
-      Number.isFinite(Number(mob.spawnPoint.z)) ? 0.85 : 0.55,
-      importedAt,
-      importedAt
-    );
-  }
+  upsertNamedSpawnPoint(db, mob.shalazamId, mob.spawnPoint, importedAt);
   return true;
+}
+
+function upsertNamedSpawnPoint(db, shalazamId, spawnPoint, importedAt = new Date().toISOString()) {
+  if (!spawnPoint || !Number.isFinite(Number(spawnPoint.x)) || !Number.isFinite(Number(spawnPoint.y))) return false;
+  const confidence = Number.isFinite(Number(spawnPoint.confidence))
+    ? Number(spawnPoint.confidence)
+    : Number.isFinite(Number(spawnPoint.z)) ? 0.85 : 0.55;
+  db.prepare(`
+    INSERT INTO named_spawn_points (
+      shalazam_id, x, y, z, radius, map_id, source, confidence, first_seen, last_seen
+    ) VALUES (?, ?, ?, ?, ?, ?, 'shalazam', ?, ?, ?)
+    ON CONFLICT(shalazam_id, source, x, y, z) DO UPDATE SET
+      radius = excluded.radius,
+      map_id = COALESCE(excluded.map_id, named_spawn_points.map_id),
+      confidence = MAX(named_spawn_points.confidence, excluded.confidence),
+      last_seen = excluded.last_seen
+  `).run(
+    shalazamId,
+    Number(spawnPoint.x),
+    Number(spawnPoint.y),
+    Number.isFinite(Number(spawnPoint.z)) ? Number(spawnPoint.z) : 0,
+    Number.isFinite(Number(spawnPoint.radius)) ? Number(spawnPoint.radius) : 35,
+    spawnPoint.mapId || null,
+    confidence,
+    importedAt,
+    importedAt
+  );
+  return true;
+}
+
+function seedKnownNamedMobs(db, importedAt = new Date().toISOString()) {
+  let seeded = 0;
+  for (const mob of KNOWN_NAMED_MOBS) {
+    const spawnPoints = Array.isArray(mob.spawnPoints) ? mob.spawnPoints : [];
+    if (upsertNamedMob(db, { ...mob, spawnPoint: spawnPoints[0] || mob.spawnPoint || null }, importedAt)) {
+      seeded += 1;
+      for (const spawnPoint of spawnPoints.slice(1)) {
+        upsertNamedSpawnPoint(db, mob.shalazamId, spawnPoint, importedAt);
+      }
+    }
+  }
+  return seeded;
 }
 
 function getNamedMobSummary(db, options = {}) {
@@ -262,6 +286,7 @@ function getNamedMobSummary(db, options = {}) {
 }
 
 module.exports = {
+  KNOWN_NAMED_MOBS,
   SHALAZAM_BASE_URL,
   decodeHtml,
   getNamedMobSummary,
@@ -270,5 +295,6 @@ module.exports = {
   parseMonsterDetailPage,
   parseNamedMobListPage,
   parseShalazamMonsterPath,
+  seedKnownNamedMobs,
   upsertNamedMob
 };

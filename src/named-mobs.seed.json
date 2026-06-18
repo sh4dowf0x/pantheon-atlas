@@ -1,0 +1,3785 @@
+[
+  {
+    "shalazamId": 97,
+    "slug": "hotshot-sallisah",
+    "name": "\"Hotshot\" Sallisah",
+    "location": "Thug Camps",
+    "zone": "Thronefast",
+    "levelMin": 6,
+    "levelMax": 6,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/97-hotshot-sallisah",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 95,
+    "slug": "a-dark-agent",
+    "name": "A Dark Agent",
+    "location": "Avendyr's Pass",
+    "zone": null,
+    "levelMin": 20,
+    "levelMax": 20,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/95-a-dark-agent",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3208,
+        "y": 1769,
+        "z": 543,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 3,
+    "slug": "a-jacked-rabbit",
+    "name": "a jacked rabbit",
+    "location": "Thronefast",
+    "zone": null,
+    "levelMin": 10,
+    "levelMax": 10,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/3-a-jacked-rabbit",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3777.14,
+        "y": 3065,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 96,
+    "slug": "a-ring-tailed-raccoon",
+    "name": "a ring-tailed raccoon",
+    "location": "Thronefast",
+    "zone": null,
+    "levelMin": 4,
+    "levelMax": 4,
+    "difficulty": "Solo",
+    "spawn": "sunny",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/96-a-ring-tailed-raccoon",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 2852,
+        "y": 3857,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 27,
+    "slug": "a-white-dire-wolf",
+    "name": "a white dire wolf",
+    "location": "Thronefast",
+    "zone": null,
+    "levelMin": 11,
+    "levelMax": 11,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/27-a-white-dire-wolf",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 4339,
+        "y": 2678,
+        "z": 514,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 85,
+    "slug": "abandoned-quarry-golem",
+    "name": "Abandoned Quarry Golem",
+    "location": "Thronefast",
+    "zone": null,
+    "levelMin": 4,
+    "levelMax": 4,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/85-abandoned-quarry-golem",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 35,
+    "slug": "aganocht",
+    "name": "Aganocht",
+    "location": "Mad Run",
+    "zone": "Avendyr's Pass",
+    "levelMin": 40,
+    "levelMax": 40,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Brood of Aganocht",
+    "sourceUrl": "https://shalazam.info/monsters/35-aganocht",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3515,
+        "y": 900,
+        "z": 472,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 709,
+    "slug": "ancient-chasm-golem",
+    "name": "Ancient Chasm Golem",
+    "location": "Chasm Mirekins",
+    "zone": "Black Rose Keep",
+    "levelMin": 32,
+    "levelMax": 32,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/709-ancient-chasm-golem",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1134.12,
+        "y": 1764.45,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 582,
+    "slug": "anok-tular",
+    "name": "Anok'Tular",
+    "location": "Halnir Cave Dungeon",
+    "zone": "Avendyr's Pass",
+    "levelMin": 28,
+    "levelMax": 28,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/582-anok-tular",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -37,
+        "y": 64,
+        "z": -19,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 764,
+    "slug": "apex-druul",
+    "name": "Apex Druul",
+    "location": "Wildmound Cradle Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 43,
+    "levelMax": 43,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Wildbloods",
+    "sourceUrl": "https://shalazam.info/monsters/764-apex-druul",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -103,
+        "y": -2048,
+        "z": 543,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 794,
+    "slug": "asabatu",
+    "name": "Asabatu",
+    "location": "Spider Den",
+    "zone": "Thronefast",
+    "levelMin": 11,
+    "levelMax": 11,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/794-asabatu",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 4408,
+        "y": 2833,
+        "z": 471,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 621,
+    "slug": "ash-sentinel-vyrrak-the-everburned",
+    "name": "Ash-Sentinel Vyrrak the Everburned",
+    "location": "Ashbreather Enclave Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 44,
+    "levelMax": 44,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Ash Breathers",
+    "sourceUrl": "https://shalazam.info/monsters/621-ash-sentinel-vyrrak-the-everburned",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -380,
+        "y": 1035,
+        "z": 520,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 70,
+    "slug": "ashbarran-the-banebound",
+    "name": "Ashbarran the Banebound",
+    "location": "Halnir Cave Dungeon",
+    "zone": "Avendyr's Pass",
+    "levelMin": 28,
+    "levelMax": 28,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": "Barran Noble Family",
+    "sourceUrl": "https://shalazam.info/monsters/70-ashbarran-the-banebound",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -79,
+        "y": -93,
+        "z": 6,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 613,
+    "slug": "barren-cindrel",
+    "name": "Barren Cindrel",
+    "location": "Ashbreather Enclave Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 43,
+    "levelMax": 43,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Ash Breathers",
+    "sourceUrl": "https://shalazam.info/monsters/613-barren-cindrel",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -422,
+        "y": 779,
+        "z": 544,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 636,
+    "slug": "barren-nahlira",
+    "name": "Barren Nahlira",
+    "location": "Ashbreather Enclave Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 44,
+    "levelMax": 44,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Ash Breathers",
+    "sourceUrl": "https://shalazam.info/monsters/636-barren-nahlira",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -304,
+        "y": 888,
+        "z": 562,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 616,
+    "slug": "bella-reed",
+    "name": "Bella Reed",
+    "location": "Smoldering Trenches Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 38,
+    "levelMax": 38,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/616-bella-reed",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -615,
+        "y": 53,
+        "z": 510,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 7,
+    "slug": "bitter-bone",
+    "name": "Bitter Bone",
+    "location": "Spirit Manor",
+    "zone": "Thronefast",
+    "levelMin": 16,
+    "levelMax": 16,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/7-bitter-bone",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 4433,
+        "y": 2593,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 703,
+    "slug": "black-rose-stable-master",
+    "name": "Black Rose Stable Master",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 22,
+    "levelMax": 22,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/703-black-rose-stable-master",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1592,
+        "y": 1586,
+        "z": 656,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 708,
+    "slug": "black-wolf-cilth",
+    "name": "Black Wolf Cilth",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 35,
+    "levelMax": 35,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/708-black-wolf-cilth",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1455,
+        "y": 1624,
+        "z": 0,
+        "radius": 35,
+        "mapId": "5",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 604,
+    "slug": "black-wolf-dyl",
+    "name": "Black Wolf Dyl",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 22,
+    "levelMax": 22,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/604-black-wolf-dyl",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1524,
+        "y": 1693,
+        "z": 647,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 733,
+    "slug": "black-wolf-qin",
+    "name": "Black Wolf Qin",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 36,
+    "levelMax": 36,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/733-black-wolf-qin",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1398,
+        "y": 1565,
+        "z": 700,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 695,
+    "slug": "black-wolf-rusa",
+    "name": "Black Wolf Rusa",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 35,
+    "levelMax": 35,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/695-black-wolf-rusa",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1494.13,
+        "y": 1517.87,
+        "z": 0,
+        "radius": 35,
+        "mapId": "5",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 26,
+    "slug": "blackback-widow",
+    "name": "blackback widow",
+    "location": "Thronefast",
+    "zone": null,
+    "levelMin": 4,
+    "levelMax": 4,
+    "difficulty": "Solo",
+    "spawn": null,
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/26-blackback-widow",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3375,
+        "y": 4551,
+        "z": 613,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 67,
+    "slug": "blood-lich-sangshaa",
+    "name": "Blood Lich Sangshaa",
+    "location": "Halnir Cave Dungeon",
+    "zone": "Avendyr's Pass",
+    "levelMin": 25,
+    "levelMax": 25,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": "Crimson Shroud",
+    "sourceUrl": "https://shalazam.info/monsters/67-blood-lich-sangshaa",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -23.05,
+        "y": -73.71,
+        "z": 0,
+        "radius": 35,
+        "mapId": "2",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 18,
+    "slug": "bloodfang",
+    "name": "Bloodfang",
+    "location": "Undead Ruins",
+    "zone": "Avendyr's Pass",
+    "levelMin": 14,
+    "levelMax": 14,
+    "difficulty": "Solo",
+    "spawn": null,
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/18-bloodfang",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3392,
+        "y": 1769,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 583,
+    "slug": "bloodsick-hulk",
+    "name": "Bloodsick Hulk",
+    "location": "Halnir Cave Dungeon",
+    "zone": "Avendyr's Pass",
+    "levelMin": 18,
+    "levelMax": 18,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": "Drawn Ratkin",
+    "sourceUrl": "https://shalazam.info/monsters/583-bloodsick-hulk",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 120.26,
+        "y": -72.04,
+        "z": 0,
+        "radius": 35,
+        "mapId": "2",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 110,
+    "slug": "bogjaw",
+    "name": "Bogjaw",
+    "location": "Wilds End",
+    "zone": null,
+    "levelMin": 15,
+    "levelMax": 15,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/110-bogjaw",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 2662,
+        "y": -2558,
+        "z": 459,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 743,
+    "slug": "borric-the-caskmaster",
+    "name": "Borric the Caskmaster",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 33,
+    "levelMax": 33,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/743-borric-the-caskmaster",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1497,
+        "y": 1597,
+        "z": 666,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 38,
+    "slug": "brooding-skitterfang",
+    "name": "brooding skitterfang",
+    "location": "Spider Den",
+    "zone": "Thronefast",
+    "levelMin": 14,
+    "levelMax": 14,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/38-brooding-skitterfang",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3634,
+        "y": 3229,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 693,
+    "slug": "chalice-jey-the-white-raven",
+    "name": "Chalice Jey, The White Raven",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 36,
+    "levelMax": 36,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/693-chalice-jey-the-white-raven",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1495,
+        "y": 1628,
+        "z": 700,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 699,
+    "slug": "chef-rham-slay",
+    "name": "Chef Rham Slay",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 34,
+    "levelMax": 34,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/699-chef-rham-slay",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1464,
+        "y": 1564,
+        "z": 666,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 39,
+    "slug": "corrupted-rockbone-goblin",
+    "name": "Corrupted Rockbone Goblin",
+    "location": "Goblin Cave Dungeon",
+    "zone": "Thronefast",
+    "levelMin": 12,
+    "levelMax": 12,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Mountain Hobgoblins",
+    "sourceUrl": "https://shalazam.info/monsters/39-corrupted-rockbone-goblin",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3369,
+        "y": 3112,
+        "z": 473,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 49,
+    "slug": "crav",
+    "name": "Crav",
+    "location": "Ancestral Hobgoblins",
+    "zone": "Avendyr's Pass",
+    "levelMin": 18,
+    "levelMax": 18,
+    "difficulty": "Group",
+    "spawn": null,
+    "faction": "Mountain Hobgoblins",
+    "sourceUrl": "https://shalazam.info/monsters/49-crav",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3719,
+        "y": 2728,
+        "z": 711,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 111,
+    "slug": "crestlord-ruknar",
+    "name": "Crestlord Ruknar",
+    "location": "Ghaldassii Ruins Dungeon",
+    "zone": "Wilds End",
+    "levelMin": 15,
+    "levelMax": 15,
+    "difficulty": "Group",
+    "spawn": null,
+    "faction": "Brineclaw Goblins",
+    "sourceUrl": "https://shalazam.info/monsters/111-crestlord-ruknar",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3069,
+        "y": -3892,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 729,
+    "slug": "crimson-grin",
+    "name": "Crimson Grin",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 22,
+    "levelMax": 22,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/729-crimson-grin",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1526.88,
+        "y": 1655.19,
+        "z": 0,
+        "radius": 35,
+        "mapId": "5",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 23,
+    "slug": "cursed-apparition",
+    "name": "cursed apparition",
+    "location": "Spirit Manor",
+    "zone": "Thronefast",
+    "levelMin": 16,
+    "levelMax": 16,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/23-cursed-apparition",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 4649,
+        "y": 2577,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 617,
+    "slug": "dain-blackbark",
+    "name": "Dain Blackbark",
+    "location": "Smoldering Trenches Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 38,
+    "levelMax": 38,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/617-dain-blackbark",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -704,
+        "y": 110,
+        "z": 500,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 634,
+    "slug": "death-beetle",
+    "name": "death beetle",
+    "location": "Ashbreather Enclave Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 42,
+    "levelMax": 42,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/634-death-beetle",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -266.08,
+        "y": 940.88,
+        "z": 0,
+        "radius": 35,
+        "mapId": "9",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 739,
+    "slug": "dobian-yowe",
+    "name": "Dobian Yowe",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": null,
+    "levelMax": null,
+    "difficulty": "Group",
+    "spawn": null,
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/739-dobian-yowe",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1639.52,
+        "y": 1834.42,
+        "z": 0,
+        "radius": 35,
+        "mapId": "5",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 599,
+    "slug": "dravik-the-unburned",
+    "name": "Dravik the Unburned",
+    "location": "Ashbreather Enclave Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 43,
+    "levelMax": 43,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Ash Breathers",
+    "sourceUrl": "https://shalazam.info/monsters/599-dravik-the-unburned",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -276,
+        "y": 900,
+        "z": 0,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 83,
+    "slug": "drawn-outcast",
+    "name": "Drawn Outcast",
+    "location": "Halnir Cave Dungeon",
+    "zone": "Avendyr's Pass",
+    "levelMin": 13,
+    "levelMax": 13,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": "Drawn Ratkin",
+    "sourceUrl": "https://shalazam.info/monsters/83-drawn-outcast",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -24,
+        "y": -71,
+        "z": 19,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 80,
+    "slug": "drog",
+    "name": "Drog",
+    "location": "Forelyn Hobgoblins",
+    "zone": "Thronefast",
+    "levelMin": 13,
+    "levelMax": 13,
+    "difficulty": "Solo",
+    "spawn": null,
+    "faction": "Mountain Hobgoblins",
+    "sourceUrl": "https://shalazam.info/monsters/80-drog",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 74,
+    "slug": "elder-ironhide-boar",
+    "name": "Elder Ironhide Boar",
+    "location": "Thronefast",
+    "zone": null,
+    "levelMin": 13,
+    "levelMax": 13,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/74-elder-ironhide-boar",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 4259,
+        "y": 2664,
+        "z": 569,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 633,
+    "slug": "engraver-zarith-the-everburned",
+    "name": "Engraver Zarith the Everburned",
+    "location": "Ashbreather Enclave Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 43,
+    "levelMax": 43,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Ash Breathers",
+    "sourceUrl": "https://shalazam.info/monsters/633-engraver-zarith-the-everburned",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -392,
+        "y": 871,
+        "z": 512,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 73,
+    "slug": "forgotten-bowman",
+    "name": "forgotten bowman",
+    "location": "Thronefast",
+    "zone": null,
+    "levelMin": 14,
+    "levelMax": 14,
+    "difficulty": "Solo",
+    "spawn": null,
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/73-forgotten-bowman",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 87,
+    "slug": "gadai-messenger",
+    "name": "Gadai messenger",
+    "location": "Gadai Outposts",
+    "zone": "Avendyr's Pass",
+    "levelMin": 10,
+    "levelMax": 10,
+    "difficulty": "Solo",
+    "spawn": null,
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/87-gadai-messenger",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 600,
+    "slug": "gadai-nightrunner",
+    "name": "Gadai nightrunner",
+    "location": "Gadai Outposts",
+    "zone": "Avendyr's Pass",
+    "levelMin": 10,
+    "levelMax": 10,
+    "difficulty": "Solo",
+    "spawn": "bedtime",
+    "faction": "Gadai Bandits",
+    "sourceUrl": "https://shalazam.info/monsters/600-gadai-nightrunner",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 2892.12,
+        "y": 2725.39,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 61,
+    "slug": "gadai-outlaw",
+    "name": "Gadai outlaw",
+    "location": "Gadai Outposts",
+    "zone": "Avendyr's Pass",
+    "levelMin": 10,
+    "levelMax": 10,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/61-gadai-outlaw",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 47,
+    "slug": "gadai-recruiter",
+    "name": "Gadai Recruiter",
+    "location": "Gadai Camps",
+    "zone": "Thronefast",
+    "levelMin": 6,
+    "levelMax": 6,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": "Gadai Bandits",
+    "sourceUrl": "https://shalazam.info/monsters/47-gadai-recruiter",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3992.16,
+        "y": 3095.17,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 30,
+    "slug": "gatta-farrow",
+    "name": "Gatta Farrow",
+    "location": "Gadai Fortress",
+    "zone": "Thronefast",
+    "levelMin": 25,
+    "levelMax": 25,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/30-gatta-farrow",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 4095,
+        "y": 2669,
+        "z": 584,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 50,
+    "slug": "ghost-viper-broodmother",
+    "name": "Ghost Viper Broodmother",
+    "location": "Avendyr's Pass",
+    "zone": null,
+    "levelMin": 15,
+    "levelMax": 15,
+    "difficulty": "Group",
+    "spawn": null,
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/50-ghost-viper-broodmother",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 2854,
+        "y": 2463,
+        "z": 518,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 66,
+    "slug": "gnashura-the-uncounted-prince",
+    "name": "Gnashura, the Uncounted Prince",
+    "location": "Halnir Cave Dungeon",
+    "zone": "Avendyr's Pass",
+    "levelMin": 27,
+    "levelMax": 27,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Princes of the Bane",
+    "sourceUrl": "https://shalazam.info/monsters/66-gnashura-the-uncounted-prince",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -94,
+        "y": -135,
+        "z": 36,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 54,
+    "slug": "goggham",
+    "name": "Goggham",
+    "location": "Hanggore Dungeon",
+    "zone": "Avendyr's Pass",
+    "levelMin": 30,
+    "levelMax": 30,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/54-goggham",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1940,
+        "y": 3393,
+        "z": 600,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 730,
+    "slug": "gorrek-woodcleave",
+    "name": "Gorrek Woodcleave",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 21,
+    "levelMax": 21,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/730-gorrek-woodcleave",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1694,
+        "y": 1924,
+        "z": 618,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 756,
+    "slug": "grand-illustrator-erlven-maure",
+    "name": "Grand Illustrator Erlven Maure",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 36,
+    "levelMax": 36,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/756-grand-illustrator-erlven-maure",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1466,
+        "y": 1571,
+        "z": 0,
+        "radius": 35,
+        "mapId": "5",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 728,
+    "slug": "grillmaster-brayg",
+    "name": "Grillmaster Brayg",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 22,
+    "levelMax": 22,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/728-grillmaster-brayg",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1514,
+        "y": 1696,
+        "z": 647,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 118,
+    "slug": "grimwatcher-xarok",
+    "name": "Grimwatcher Xarok",
+    "location": "Eastern Plains",
+    "zone": null,
+    "levelMin": 40,
+    "levelMax": 40,
+    "difficulty": "Group",
+    "spawn": "bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/118-grimwatcher-xarok",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 89,
+    "slug": "grimwatcher-zarnak",
+    "name": "Grimwatcher Zarnak",
+    "location": "Avendyr's Pass",
+    "zone": null,
+    "levelMin": 40,
+    "levelMax": 40,
+    "difficulty": "Solo",
+    "spawn": "bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/89-grimwatcher-zarnak",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 2,
+    "slug": "grizzled-greatpaw",
+    "name": "grizzled greatpaw",
+    "location": "Thronefast",
+    "zone": null,
+    "levelMin": 10,
+    "levelMax": 10,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/2-grizzled-greatpaw",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3962,
+        "y": 2875,
+        "z": 491,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 518,
+    "slug": "grubnash",
+    "name": "Grubnash",
+    "location": "Barrowdark",
+    "zone": "Thronefast",
+    "levelMin": 6,
+    "levelMax": 6,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/518-grubnash",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3022.58,
+        "y": 3188.13,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 114,
+    "slug": "gruumsh-the-elusive",
+    "name": "Gruumsh the Elusive",
+    "location": "Ghaldassii Ruins Dungeon",
+    "zone": "Wilds End",
+    "levelMin": 15,
+    "levelMax": 15,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Brineclaw Goblins",
+    "sourceUrl": "https://shalazam.info/monsters/114-gruumsh-the-elusive",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3044,
+        "y": -3580,
+        "z": 475,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 620,
+    "slug": "halor-the-tormented",
+    "name": "Halor the Tormented",
+    "location": "Smoldering Trenches Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 38,
+    "levelMax": 38,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/620-halor-the-tormented",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -741,
+        "y": 108,
+        "z": 493,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 69,
+    "slug": "harathena",
+    "name": "Harathena",
+    "location": "Halnir Cave Dungeon",
+    "zone": "Avendyr's Pass",
+    "levelMin": 22,
+    "levelMax": 22,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Hara's Crawl",
+    "sourceUrl": "https://shalazam.info/monsters/69-harathena",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 77,
+        "y": 53,
+        "z": 98,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 772,
+    "slug": "heartrot",
+    "name": "Heartrot",
+    "location": "Hiryth Hill",
+    "zone": "Silent Plains",
+    "levelMin": 33,
+    "levelMax": 33,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/772-heartrot",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 502,
+        "y": -1514,
+        "z": 525,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 24,
+    "slug": "heltic",
+    "name": "Heltic",
+    "location": "Gadai Fortress",
+    "zone": "Thronefast",
+    "levelMin": 24,
+    "levelMax": 24,
+    "difficulty": "Group",
+    "spawn": null,
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/24-heltic",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3929.24,
+        "y": 2724.71,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 382,
+    "slug": "highspire-hivequeen",
+    "name": "highspire hivequeen",
+    "location": "Highspire Hornets",
+    "zone": "Eastern Plains",
+    "levelMin": 23,
+    "levelMax": 25,
+    "difficulty": "Solo",
+    "spawn": null,
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/382-highspire-hivequeen",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 2857.76,
+        "y": 42.82,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 68,
+    "slug": "hssyr-the-wretch",
+    "name": "Hssyr the Wretch",
+    "location": "Halnir Cave",
+    "zone": "Avendyr's Pass",
+    "levelMin": 15,
+    "levelMax": 15,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Drawn Ratkin",
+    "sourceUrl": "https://shalazam.info/monsters/68-hssyr-the-wretch",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 38,
+        "y": 0,
+        "z": 21,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 707,
+    "slug": "interrogator-threll",
+    "name": "Interrogator Threll",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 22,
+    "levelMax": 22,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/707-interrogator-threll",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1478,
+        "y": 1583,
+        "z": 626,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 784,
+    "slug": "iratt-fey-duul",
+    "name": "Iratt fey Duul",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 25,
+    "levelMax": 25,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/784-iratt-fey-duul",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1529,
+        "y": 1725,
+        "z": 609,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 618,
+    "slug": "jon-romus",
+    "name": "Jon Romus",
+    "location": "Smoldering Trenches Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 38,
+    "levelMax": 38,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/618-jon-romus",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -669,
+        "y": 231,
+        "z": 545,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 17,
+    "slug": "jorryn-farrow",
+    "name": "Jorryn Farrow",
+    "location": "Gadai Outposts",
+    "zone": "Avendyr's Pass",
+    "levelMin": 12,
+    "levelMax": 12,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/17-jorryn-farrow",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 2864,
+        "y": 2691,
+        "z": 523,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 41,
+    "slug": "jugo-mountain-pojacks",
+    "name": "Jugo \"Mountain\" Pojacks",
+    "location": "Gadai Fortress",
+    "zone": "Thronefast",
+    "levelMin": 25,
+    "levelMax": 25,
+    "difficulty": "Group",
+    "spawn": null,
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/41-jugo-mountain-pojacks",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3967,
+        "y": 2728,
+        "z": 580,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 625,
+    "slug": "justy-reden",
+    "name": "Justy Reden",
+    "location": "Smoldering Trenches Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 37,
+    "levelMax": 37,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/625-justy-reden",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -723,
+        "y": 69,
+        "z": 515,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 556,
+    "slug": "kaelthar-the-withering",
+    "name": "Kaelthar the Withering",
+    "location": "Mad Moor Dungeon",
+    "zone": "Wilds End",
+    "levelMin": 40,
+    "levelMax": 40,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/556-kaelthar-the-withering",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 2422,
+        "y": -2929,
+        "z": 461,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 115,
+    "slug": "karnak-ironbranch",
+    "name": "Karnak Ironbranch",
+    "location": "Ironroot Orcs",
+    "zone": "Wilds End",
+    "levelMin": 20,
+    "levelMax": 20,
+    "difficulty": "Group",
+    "spawn": null,
+    "faction": "Ironbranch Orcs",
+    "sourceUrl": "https://shalazam.info/monsters/115-karnak-ironbranch",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 4406,
+        "y": -1909,
+        "z": 603,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 33,
+    "slug": "keragos-the-watcher",
+    "name": "Keragos the Watcher",
+    "location": "Thronefast",
+    "zone": null,
+    "levelMin": 50,
+    "levelMax": 50,
+    "difficulty": "Group",
+    "spawn": null,
+    "faction": "Dragons of the Air",
+    "sourceUrl": "https://shalazam.info/monsters/33-keragos-the-watcher",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 2611,
+        "y": 3603,
+        "z": 606,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 821,
+    "slug": "keybound-skeleton",
+    "name": "Keybound Skeleton",
+    "location": "Nightfall Crypt Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 31,
+    "levelMax": 31,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/821-keybound-skeleton",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 21,
+    "slug": "khibera",
+    "name": "Khibera",
+    "location": "Avendyr's Pass",
+    "zone": null,
+    "levelMin": 15,
+    "levelMax": 15,
+    "difficulty": "Solo",
+    "spawn": null,
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/21-khibera",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 2808,
+        "y": 2926,
+        "z": 599,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 107,
+    "slug": "krageeli-the-ruinous",
+    "name": "Krageeli the Ruinous",
+    "location": "Ghaldassii Ruins Dungeon",
+    "zone": "Wilds End",
+    "levelMin": 12,
+    "levelMax": 12,
+    "difficulty": "Group",
+    "spawn": null,
+    "faction": "Brineclaw Goblins",
+    "sourceUrl": "https://shalazam.info/monsters/107-krageeli-the-ruinous",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3015,
+        "y": -3794,
+        "z": 549,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 102,
+    "slug": "krex",
+    "name": "Krex",
+    "location": "Jungle Goblins",
+    "zone": "Wilds End",
+    "levelMin": 7,
+    "levelMax": 7,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/102-krex",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 4419.41,
+        "y": -2519.14,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 601,
+    "slug": "kvetra-the-burning-banshee",
+    "name": "Kvetra the Burning Banshee",
+    "location": "Smoldering Trenches Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 35,
+    "levelMax": 35,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/601-kvetra-the-burning-banshee",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -581,
+        "y": 128,
+        "z": 513,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 16,
+    "slug": "kyan-the-bolt-serevatti",
+    "name": "Kyan \"The Bolt\" Serevatti",
+    "location": "Avendyr's Pass",
+    "zone": null,
+    "levelMin": 22,
+    "levelMax": 22,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": "Order of Lightning",
+    "sourceUrl": "https://shalazam.info/monsters/16-kyan-the-bolt-serevatti",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 6,
+    "slug": "larcs-the-weaponsmith",
+    "name": "Larcs the Weaponsmith",
+    "location": "Gadai Camps",
+    "zone": "Thronefast",
+    "levelMin": 10,
+    "levelMax": 10,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": "Gadai Bandits",
+    "sourceUrl": "https://shalazam.info/monsters/6-larcs-the-weaponsmith",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3949,
+        "y": 2899,
+        "z": 518,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 706,
+    "slug": "leon-alpha",
+    "name": "Leon Alpha",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 32,
+    "levelMax": 32,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/706-leon-alpha",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1423.31,
+        "y": 1516.04,
+        "z": 0,
+        "radius": 35,
+        "mapId": "5",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 787,
+    "slug": "leonus-master-of-the-keep",
+    "name": "Leonus (Master of the Keep)",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 45,
+    "levelMax": 45,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/787-leonus-master-of-the-keep",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1334,
+        "y": 1470,
+        "z": 726,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 45,
+    "slug": "lost-foreman",
+    "name": "lost foreman",
+    "location": "Goblin Cave Dungeon",
+    "zone": "Thronefast",
+    "levelMin": 20,
+    "levelMax": 20,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/45-lost-foreman",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3576,
+        "y": 3166,
+        "z": 542,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 602,
+    "slug": "lt-fion-iridia",
+    "name": "Lt. Fion Iridia",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 38,
+    "levelMax": 38,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/602-lt-fion-iridia",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1397,
+        "y": 1571,
+        "z": 680,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 52,
+    "slug": "lydra",
+    "name": "Lydra",
+    "location": "Mad Run",
+    "zone": "Avendyr's Pass",
+    "levelMin": 23,
+    "levelMax": 23,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Lurking Outcasts",
+    "sourceUrl": "https://shalazam.info/monsters/52-lydra",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 603,
+    "slug": "magelord-khro-kamen",
+    "name": "Magelord Khro'kamen",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 38,
+    "levelMax": 38,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/603-magelord-khro-kamen",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1433,
+        "y": 1502,
+        "z": 701,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 101,
+    "slug": "maraki-ki",
+    "name": "Maraki'ki",
+    "location": "Jungle Goblins",
+    "zone": "Wilds End",
+    "levelMin": 4,
+    "levelMax": 6,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/101-maraki-ki",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 4302.08,
+        "y": -2432.33,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 98,
+    "slug": "masked-bandit",
+    "name": "masked bandit",
+    "location": "Thug Camps",
+    "zone": "Thronefast",
+    "levelMin": 5,
+    "levelMax": 5,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/98-masked-bandit",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3252.09,
+        "y": 3926.75,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 88,
+    "slug": "master-bushu",
+    "name": "Master Bushu",
+    "location": "Halnir Cave Dungeon",
+    "zone": "Avendyr's Pass",
+    "levelMin": 28,
+    "levelMax": 28,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/88-master-bushu",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -131,
+        "y": -27,
+        "z": 16,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 698,
+    "slug": "master-daril-the-steward",
+    "name": "Master Daril the Steward",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 33,
+    "levelMax": 33,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/698-master-daril-the-steward",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1464,
+        "y": 1566,
+        "z": 679,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 732,
+    "slug": "modrus-giantbane",
+    "name": "Modrus \"Giantbane\"",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 35,
+    "levelMax": 35,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/732-modrus-giantbane",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1474,
+        "y": 1591.12,
+        "z": 0,
+        "radius": 35,
+        "mapId": "5",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 554,
+    "slug": "moon-witch-lysara",
+    "name": "Moon Witch Lysara",
+    "location": "Knightwolf Knoll",
+    "zone": "Eastern Plains",
+    "levelMin": 26,
+    "levelMax": 26,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Sisters of the Moon",
+    "sourceUrl": "https://shalazam.info/monsters/554-moon-witch-lysara",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 2415,
+        "y": -556,
+        "z": 863,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 84,
+    "slug": "moonfang",
+    "name": "Moonfang",
+    "location": "Avendyr's Pass",
+    "zone": null,
+    "levelMin": 15,
+    "levelMax": 15,
+    "difficulty": "Solo",
+    "spawn": "bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/84-moonfang",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 731,
+    "slug": "mossajaed-the-dame-of-shillin",
+    "name": "Mossajaed \"The Dame of Shillin\"",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 36,
+    "levelMax": 36,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Shillin Pirates",
+    "sourceUrl": "https://shalazam.info/monsters/731-mossajaed-the-dame-of-shillin",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1469,
+        "y": 1609,
+        "z": 666,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 395,
+    "slug": "mountain-drake-matriarch",
+    "name": "Mountain Drake Matriarch",
+    "location": "Drake Spire",
+    "zone": "Avendyr's Pass",
+    "levelMin": 35,
+    "levelMax": 35,
+    "difficulty": "Group",
+    "spawn": null,
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/395-mountain-drake-matriarch",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 2901,
+        "y": 1901,
+        "z": 739,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 827,
+    "slug": "nameless-warden",
+    "name": "Nameless Warden",
+    "location": "Nightfall Crypt Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 31,
+    "levelMax": 31,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/827-nameless-warden",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 78,
+    "slug": "nightbane-toad",
+    "name": "Nightbane Toad",
+    "location": "Thronefast",
+    "zone": "it's marked on the map",
+    "levelMin": 10,
+    "levelMax": 10,
+    "difficulty": "Solo",
+    "spawn": "bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/78-nightbane-toad",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 43,
+    "slug": "nydar",
+    "name": "Nydar",
+    "location": "Mad Run",
+    "zone": "Avendyr's Pass",
+    "levelMin": 23,
+    "levelMax": 23,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Lurking Outcasts",
+    "sourceUrl": "https://shalazam.info/monsters/43-nydar",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3420,
+        "y": 846,
+        "z": 511,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 60,
+    "slug": "ognose-the-deranged",
+    "name": "Ognose the Deranged",
+    "location": "Hanggore Dungeon",
+    "zone": "Avendyr's Pass",
+    "levelMin": 31,
+    "levelMax": 31,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "North Tusk Orcs",
+    "sourceUrl": "https://shalazam.info/monsters/60-ognose-the-deranged",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 2229.84,
+        "y": 3410.08,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 13,
+    "slug": "old-grey",
+    "name": "Old Grey",
+    "location": "Thronefast",
+    "zone": null,
+    "levelMin": 7,
+    "levelMax": 7,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/13-old-grey",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3675,
+        "y": 4162,
+        "z": 483,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 20,
+    "slug": "peltmaster-krane",
+    "name": "Peltmaster Krane",
+    "location": "Wayward Trappers",
+    "zone": "Avendyr's Pass",
+    "levelMin": 13,
+    "levelMax": 13,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": "The Dark Trade",
+    "sourceUrl": "https://shalazam.info/monsters/20-peltmaster-krane",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 9,
+    "slug": "pog-the-elusive",
+    "name": "Pog the Elusive",
+    "location": "Forelyn Hobgoblins",
+    "zone": "Thronefast",
+    "levelMin": 12,
+    "levelMax": 12,
+    "difficulty": "Group",
+    "spawn": null,
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/9-pog-the-elusive",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 2817,
+        "y": 3582,
+        "z": 601,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 696,
+    "slug": "quartermaster-bura",
+    "name": "Quartermaster Bura",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 34,
+    "levelMax": 34,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/696-quartermaster-bura",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1492,
+        "y": 1566,
+        "z": 666,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 11,
+    "slug": "ragifus",
+    "name": "Ragifus",
+    "location": "Thronefast",
+    "zone": null,
+    "levelMin": 4,
+    "levelMax": 4,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/11-ragifus",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3251,
+        "y": 4301,
+        "z": 515,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 819,
+    "slug": "rathis-crowe",
+    "name": "Rathis Crowe",
+    "location": "Nightfall Crypt Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 31,
+    "levelMax": 31,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "The Nightfall Collective",
+    "sourceUrl": "https://shalazam.info/monsters/819-rathis-crowe",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1712,
+        "y": 37,
+        "z": 661,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 8,
+    "slug": "rattlecage",
+    "name": "Rattlecage",
+    "location": "Availia Skellies",
+    "zone": "Thronefast",
+    "levelMin": 9,
+    "levelMax": 9,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/8-rattlecage",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3107,
+        "y": 3396,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 553,
+    "slug": "razorfang",
+    "name": "Razorfang",
+    "location": "Knightwolf Knoll",
+    "zone": "Eastern Plains",
+    "levelMin": 26,
+    "levelMax": 26,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Knightwolves",
+    "sourceUrl": "https://shalazam.info/monsters/553-razorfang",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 2410,
+        "y": -584,
+        "z": 913,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 32,
+    "slug": "redjacket-queen",
+    "name": "redjacket queen",
+    "location": "Avendyr's Pass",
+    "zone": null,
+    "levelMin": 10,
+    "levelMax": 10,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/32-redjacket-queen",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 37,
+    "slug": "rilo-the-insomniac",
+    "name": "Rilo the Insomniac",
+    "location": "Avendyr's Pass",
+    "zone": null,
+    "levelMin": 7,
+    "levelMax": 7,
+    "difficulty": "Solo",
+    "spawn": null,
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/37-rilo-the-insomniac",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3500,
+        "y": 2584,
+        "z": 639,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 40,
+    "slug": "rockbone-chief",
+    "name": "Rockbone Chief",
+    "location": "Goblin Cave Dungeon",
+    "zone": "Thronefast",
+    "levelMin": 13,
+    "levelMax": 13,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Mountain Hobgoblins",
+    "sourceUrl": "https://shalazam.info/monsters/40-rockbone-chief",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3427,
+        "y": 3080,
+        "z": 465,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 46,
+    "slug": "rockbone-emissary",
+    "name": "Rockbone Emissary",
+    "location": "Goblin Cave Dungeon",
+    "zone": "Thronefast",
+    "levelMin": 12,
+    "levelMax": 12,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": "Mountain Hobgoblins",
+    "sourceUrl": "https://shalazam.info/monsters/46-rockbone-emissary",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3378,
+        "y": 3265,
+        "z": 489,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 34,
+    "slug": "rockbone-terraformer",
+    "name": "Rockbone Terraformer",
+    "location": "Goblin Cave Dungeon",
+    "zone": "Thronefast",
+    "levelMin": 12,
+    "levelMax": 12,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": "Mountain Hobgoblins",
+    "sourceUrl": "https://shalazam.info/monsters/34-rockbone-terraformer",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3607,
+        "y": 3253,
+        "z": 481,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 59,
+    "slug": "rotfist-the-breaker",
+    "name": "Rotfist the Breaker",
+    "location": "Hanggore Dungeon",
+    "zone": "Avendyr's Pass",
+    "levelMin": 31,
+    "levelMax": 31,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/59-rotfist-the-breaker",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1824,
+        "y": 3413,
+        "z": 649,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 826,
+    "slug": "sarulith-the-exile",
+    "name": "Sarulith the Exile",
+    "location": "Nightfall Crypt Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 33,
+    "levelMax": 33,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/826-sarulith-the-exile",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1643,
+        "y": 74,
+        "z": 586,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 624,
+    "slug": "scorched-remnant",
+    "name": "scorched remnant",
+    "location": "Smoldering Trenches Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 38,
+    "levelMax": 38,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/624-scorched-remnant",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -596.2,
+        "y": -130.37,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 829,
+    "slug": "shorn-visage",
+    "name": "Shorn Visage",
+    "location": "Nightfall Crypt Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 31,
+    "levelMax": 31,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/829-shorn-visage",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1537,
+        "y": 30,
+        "z": 587,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 108,
+    "slug": "sinister-sproutbone",
+    "name": "sinister sproutbone",
+    "location": "Jungle Skellies",
+    "zone": "Wilds End",
+    "levelMin": 6,
+    "levelMax": 6,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/108-sinister-sproutbone",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 700,
+    "slug": "sister-palia",
+    "name": "Sister Palia",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 35,
+    "levelMax": 35,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/700-sister-palia",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1492.68,
+        "y": 1600.13,
+        "z": 0,
+        "radius": 35,
+        "mapId": "5",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 112,
+    "slug": "snik-the-tidemancer",
+    "name": "Snik the Tidemancer",
+    "location": "Ghaldassii Ruins Dungeon",
+    "zone": "Wilds End",
+    "levelMin": 14,
+    "levelMax": 14,
+    "difficulty": "Group",
+    "spawn": null,
+    "faction": "Brineclaw Goblins",
+    "sourceUrl": "https://shalazam.info/monsters/112-snik-the-tidemancer",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3186,
+        "y": -3911,
+        "z": 496,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 79,
+    "slug": "spider-of-ill-omen",
+    "name": "spider of ill omen",
+    "location": "Thronefast",
+    "zone": null,
+    "levelMin": 4,
+    "levelMax": 4,
+    "difficulty": "Solo",
+    "spawn": null,
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/79-spider-of-ill-omen",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 2877.42,
+        "y": 3870.93,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 765,
+    "slug": "storm-mother-shaa",
+    "name": "Storm Mother Shaa",
+    "location": "Wildmound Cradle Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 42,
+    "levelMax": 42,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Wildbloods",
+    "sourceUrl": "https://shalazam.info/monsters/765-storm-mother-shaa",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -100,
+        "y": -1880,
+        "z": 497,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 643,
+    "slug": "tel-daedras",
+    "name": "Tel’Daedras",
+    "location": "Tel'Deadras Lair",
+    "zone": "Ashbreather Enclave Dungeon",
+    "levelMin": 50,
+    "levelMax": 50,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Ash Breathers",
+    "sourceUrl": "https://shalazam.info/monsters/643-tel-daedras",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -377,
+        "y": 1148,
+        "z": 552,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 683,
+    "slug": "thaumaturge-goedien-rhomir",
+    "name": "Thaumaturge Goedien Rhomir",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 36,
+    "levelMax": 36,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/683-thaumaturge-goedien-rhomir",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1426,
+        "y": 1560,
+        "z": 0,
+        "radius": 35,
+        "mapId": "5",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 62,
+    "slug": "the-brood-watcher",
+    "name": "The Brood-Watcher",
+    "location": "Mad Run",
+    "zone": "Avendyr's Pass",
+    "levelMin": 23,
+    "levelMax": 23,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/62-the-brood-watcher",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3405,
+        "y": 1221,
+        "z": 490,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 705,
+    "slug": "the-butcher-of-ceremony",
+    "name": "The Butcher of Ceremony",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 34,
+    "levelMax": 34,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/705-the-butcher-of-ceremony",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1500,
+        "y": 1581,
+        "z": 679,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 86,
+    "slug": "the-crystal-heart",
+    "name": "The Crystal Heart",
+    "location": "Halnir Cave Dungeon",
+    "zone": "Avendyr's Pass",
+    "levelMin": 23,
+    "levelMax": 23,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Crystal Shepherds",
+    "sourceUrl": "https://shalazam.info/monsters/86-the-crystal-heart",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -65,
+        "y": 7,
+        "z": -2,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 81,
+    "slug": "the-crystal-mind",
+    "name": "The Crystal Mind",
+    "location": "Halnir Cave Dungeon",
+    "zone": "Avendyr's Pass",
+    "levelMin": 23,
+    "levelMax": 23,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": "Crystal Shepherds",
+    "sourceUrl": "https://shalazam.info/monsters/81-the-crystal-mind",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -42,
+        "y": -33,
+        "z": 19,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 91,
+    "slug": "the-crystal-will",
+    "name": "The Crystal Will",
+    "location": "Halnir Cave Dungeon",
+    "zone": "Avendyr's Pass",
+    "levelMin": 29,
+    "levelMax": 29,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Crystal Shepherds",
+    "sourceUrl": "https://shalazam.info/monsters/91-the-crystal-will",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 124,
+        "y": 22,
+        "z": -68,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 42,
+    "slug": "the-duskfiend",
+    "name": "The Duskfiend",
+    "location": "Mad Run",
+    "zone": "Avendyr's Pass",
+    "levelMin": 18,
+    "levelMax": 18,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": "Nightwolves",
+    "sourceUrl": "https://shalazam.info/monsters/42-the-duskfiend",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 55,
+    "slug": "the-ooshaa-ruk",
+    "name": "The Ooshaa'ruk",
+    "location": "Hanggore Dungeon",
+    "zone": "Avendyr's Pass",
+    "levelMin": 34,
+    "levelMax": 34,
+    "difficulty": "Group",
+    "spawn": null,
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/55-the-ooshaa-ruk",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 2025,
+        "y": 3587,
+        "z": 653,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 71,
+    "slug": "the-thief-of-eternity",
+    "name": "The Thief of Eternity",
+    "location": "Halnir Cave Dungeon",
+    "zone": "Avendyr's Pass",
+    "levelMin": null,
+    "levelMax": null,
+    "difficulty": "Group",
+    "spawn": null,
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/71-the-thief-of-eternity",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 77,
+        "y": -27,
+        "z": 6,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 57,
+    "slug": "the-white-wyvern",
+    "name": "The White Wyvern",
+    "location": "Hanggore Dungeon",
+    "zone": "Avendyr's Pass",
+    "levelMin": 35,
+    "levelMax": 35,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/57-the-white-wyvern",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 2046,
+        "y": 3574,
+        "z": 629,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 36,
+    "slug": "the-witch-of-the-wood",
+    "name": "The Witch of the Wood",
+    "location": "Mad Run",
+    "zone": "Avendyr's Pass",
+    "levelMin": 25,
+    "levelMax": 25,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Harath's Crawl",
+    "sourceUrl": "https://shalazam.info/monsters/36-the-witch-of-the-wood",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3428,
+        "y": 906,
+        "z": 474,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 619,
+    "slug": "the-withered-lich",
+    "name": "The Withered Lich",
+    "location": "Ashbreather Enclave Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 43,
+    "levelMax": 43,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/619-the-withered-lich",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -227,
+        "y": 879,
+        "z": 513,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 552,
+    "slug": "the-wycan",
+    "name": "The Wycan",
+    "location": "Knightwolf Knoll",
+    "zone": "Eastern Plains",
+    "levelMin": 27,
+    "levelMax": 27,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Knightwolves",
+    "sourceUrl": "https://shalazam.info/monsters/552-the-wycan",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 2395,
+        "y": -553,
+        "z": 866,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 105,
+    "slug": "thragos-the-rootbound",
+    "name": "Thragos the Rootbound",
+    "location": "Ironroot Orcs",
+    "zone": "Wilds End",
+    "levelMin": 19,
+    "levelMax": 19,
+    "difficulty": "Group",
+    "spawn": null,
+    "faction": "Ironbranch Orcs",
+    "sourceUrl": "https://shalazam.info/monsters/105-thragos-the-rootbound",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 4284,
+        "y": -1725,
+        "z": 638,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 120,
+    "slug": "thrixar-the-bonehowl",
+    "name": "Thrixar the Bonehowl",
+    "location": "Jungle Skellies",
+    "zone": "Wilds End",
+    "levelMin": 5,
+    "levelMax": 5,
+    "difficulty": "Solo",
+    "spawn": null,
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/120-thrixar-the-bonehowl",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 4023,
+        "y": -2826,
+        "z": 493,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 12,
+    "slug": "thug-ringleader",
+    "name": "thug ringleader",
+    "location": "Thug Camps",
+    "zone": "Thronefast",
+    "levelMin": 6,
+    "levelMax": 6,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/12-thug-ringleader",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 82,
+    "slug": "trapmaker-krell",
+    "name": "Trapmaker Krell",
+    "location": "Thronefast",
+    "zone": null,
+    "levelMin": 4,
+    "levelMax": 4,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/82-trapmaker-krell",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 72,
+    "slug": "tyrasura-the-banebound",
+    "name": "Tyrasura the Banebound",
+    "location": "Halnir Cave Dungeon",
+    "zone": "Avendyr's Pass",
+    "levelMin": 20,
+    "levelMax": 20,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Tyrusa Noble Family",
+    "sourceUrl": "https://shalazam.info/monsters/72-tyrasura-the-banebound",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -69,
+        "y": 139,
+        "z": 28,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 25,
+    "slug": "ulthiran-sacrificer",
+    "name": "Ulthiran Sacrificer",
+    "location": "Ulthirans",
+    "zone": "Thronefast",
+    "levelMin": 7,
+    "levelMax": 7,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/25-ulthiran-sacrificer",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3197,
+        "y": 3356,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 56,
+    "slug": "uzhead-the-rife",
+    "name": "Uzhead the Rife",
+    "location": "Hanggore Dungeon",
+    "zone": "Avendyr's Pass",
+    "levelMin": 31,
+    "levelMax": 31,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/56-uzhead-the-rife",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1860,
+        "y": 3200,
+        "z": 574,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 117,
+    "slug": "vaelris-the-deadheart",
+    "name": "Vaelris the Deadheart",
+    "location": "Feralings",
+    "zone": "Wilds End",
+    "levelMin": 13,
+    "levelMax": 13,
+    "difficulty": "Group",
+    "spawn": null,
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/117-vaelris-the-deadheart",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 4051,
+        "y": -2230,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 766,
+    "slug": "voidwalker-veyr",
+    "name": "Voidwalker Veyr",
+    "location": "Wildmound Cradle Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 42,
+    "levelMax": 42,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Wildbloods",
+    "sourceUrl": "https://shalazam.info/monsters/766-voidwalker-veyr",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -127,
+        "y": -1942,
+        "z": 538,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 626,
+    "slug": "vorthar-the-scorch-mind",
+    "name": "Vorthar the Scorch-Mind",
+    "location": "Smoldering Trenches Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 38,
+    "levelMax": 38,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/626-vorthar-the-scorch-mind",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -661.98,
+        "y": -83.07,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 31,
+    "slug": "wander-guardian",
+    "name": "Wander Guardian",
+    "location": "Avendyr's Pass",
+    "zone": null,
+    "levelMin": null,
+    "levelMax": null,
+    "difficulty": "Group",
+    "spawn": null,
+    "faction": "Wander Guardian",
+    "sourceUrl": "https://shalazam.info/monsters/31-wander-guardian",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 2666,
+        "y": 2261,
+        "z": 535,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 113,
+    "slug": "war-scout-grak-gor",
+    "name": "War Scout Grak-Gor",
+    "location": "Spirit Manor",
+    "zone": "Thronefast",
+    "levelMin": 18,
+    "levelMax": 18,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": "Maw Outcasts",
+    "sourceUrl": "https://shalazam.info/monsters/113-war-scout-grak-gor",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 4656,
+        "y": 2573,
+        "z": 600,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 64,
+    "slug": "warchief-gallfang",
+    "name": "Warchief Gallfang",
+    "location": "Hanggore Dungeon",
+    "zone": "Avendyr's Pass",
+    "levelMin": 32,
+    "levelMax": 32,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/64-warchief-gallfang",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1969,
+        "y": 3546,
+        "z": 664,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 736,
+    "slug": "warden-mckahnel",
+    "name": "Warden McKahnel",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 23,
+    "levelMax": 23,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/736-warden-mckahnel",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1461,
+        "y": 1583,
+        "z": 634,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 761,
+    "slug": "warspawn-orruk",
+    "name": "Warspawn Orruk",
+    "location": "Wildmound Cradle Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 42,
+    "levelMax": 42,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Wildbloods",
+    "sourceUrl": "https://shalazam.info/monsters/761-warspawn-orruk",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -133.16,
+        "y": -1801.27,
+        "z": 0,
+        "radius": 35,
+        "mapId": "6",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 745,
+    "slug": "watch-captain-isenar",
+    "name": "Watch Captain Isenar",
+    "location": "Black Rose Keep Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 26,
+    "levelMax": 26,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Black Rose",
+    "sourceUrl": "https://shalazam.info/monsters/745-watch-captain-isenar",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 801,
+    "slug": "whisper-marked-herald",
+    "name": "Whisper-Marked Herald",
+    "location": "Nightfall Crypt Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 31,
+    "levelMax": 31,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/801-whisper-marked-herald",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1601,
+        "y": 95,
+        "z": 656,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 831,
+    "slug": "wildblood-duskborn",
+    "name": "Wildblood Duskborn",
+    "location": "Wildmound Cradle Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 41,
+    "levelMax": 41,
+    "difficulty": "Group",
+    "spawn": null,
+    "faction": "Wildbloods",
+    "sourceUrl": "https://shalazam.info/monsters/831-wildblood-duskborn",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 762,
+    "slug": "wildblood-savagekin",
+    "name": "Wildblood Savagekin",
+    "location": "Wildmound Cradle Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 41,
+    "levelMax": 41,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Wildbloods",
+    "sourceUrl": "https://shalazam.info/monsters/762-wildblood-savagekin",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": -220.1,
+        "y": -1794.12,
+        "z": 0,
+        "radius": 35,
+        "mapId": "6",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 768,
+    "slug": "wildblood-veinreaper",
+    "name": "Wildblood Veinreaper",
+    "location": "Wildmound Cradle Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 41,
+    "levelMax": 41,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Wildbloods",
+    "sourceUrl": "https://shalazam.info/monsters/768-wildblood-veinreaper",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 104,
+    "slug": "wildhive-queen",
+    "name": "wildhive queen",
+    "location": "Wildhives",
+    "zone": "Wilds End",
+    "levelMin": 11,
+    "levelMax": 11,
+    "difficulty": "Group",
+    "spawn": null,
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/104-wildhive-queen",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3958.22,
+        "y": -2317.18,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 10,
+    "slug": "windfeather",
+    "name": "Windfeather",
+    "location": "Thronefast",
+    "zone": null,
+    "levelMin": 25,
+    "levelMax": 25,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/10-windfeather",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 2780,
+        "y": 3967,
+        "z": 603,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 820,
+    "slug": "writbound-confessor",
+    "name": "Writbound Confessor",
+    "location": "Nightfall Crypt Dungeon",
+    "zone": "Silent Plains",
+    "levelMin": 32,
+    "levelMax": 32,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "The Nightfall Collective",
+    "sourceUrl": "https://shalazam.info/monsters/820-writbound-confessor",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1655,
+        "y": 84,
+        "z": 661,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 65,
+    "slug": "xedras-mal-thir",
+    "name": "Xedras Mal'thir",
+    "location": "Graveyard",
+    "zone": "Thronefast",
+    "levelMin": 40,
+    "levelMax": 40,
+    "difficulty": "Group",
+    "spawn": "bedtime",
+    "faction": "The Nightfall Collective",
+    "sourceUrl": "https://shalazam.info/monsters/65-xedras-mal-thir",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 3933,
+        "y": 2599,
+        "z": 656,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 737,
+    "slug": "zakaat-chieftain",
+    "name": "Zakaat Chieftain",
+    "location": "Zakaat Goblins Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 25,
+    "levelMax": 25,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Zakaat Goblin Tribe",
+    "sourceUrl": "https://shalazam.info/monsters/737-zakaat-chieftain",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 1206.32,
+        "y": 1817.6,
+        "z": 0,
+        "radius": 35,
+        "mapId": "1",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 744,
+    "slug": "zakaat-scavenger",
+    "name": "zakaat scavenger",
+    "location": "Zakaat Goblins Dungeon",
+    "zone": "Black Rose Keep",
+    "levelMin": 24,
+    "levelMax": 24,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": "Zakaat Goblin Tribe",
+    "sourceUrl": "https://shalazam.info/monsters/744-zakaat-scavenger",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 58,
+    "slug": "zaruk-the-sightweaver",
+    "name": "Zaruk the Sightweaver",
+    "location": "Hanggore Dungeon",
+    "zone": "Avendyr's Pass",
+    "levelMin": 32,
+    "levelMax": 32,
+    "difficulty": "Group",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/58-zaruk-the-sightweaver",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 2030,
+        "y": 3247,
+        "z": 657,
+        "radius": 35,
+        "mapId": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "shalazamId": 4,
+    "slug": "zirus-the-bonewalker",
+    "name": "Zirus the Bonewalker",
+    "location": "Thronefast",
+    "zone": null,
+    "levelMin": 12,
+    "levelMax": 12,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": null,
+    "sourceUrl": "https://shalazam.info/monsters/4-zirus-the-bonewalker",
+    "rawUpdatedLabel": null,
+    "spawnPoints": []
+  },
+  {
+    "shalazamId": 77,
+    "slug": "zthir-the-foul",
+    "name": "Zthir the Foul",
+    "location": "Halnir Cave Dungeon",
+    "zone": "Avendyr's Pass",
+    "levelMin": 13,
+    "levelMax": 13,
+    "difficulty": "Solo",
+    "spawn": "sunny bedtime",
+    "faction": "Drawn Ratkin",
+    "sourceUrl": "https://shalazam.info/monsters/77-zthir-the-foul",
+    "rawUpdatedLabel": null,
+    "spawnPoints": [
+      {
+        "x": 82.55,
+        "y": -130.07,
+        "z": 0,
+        "radius": 35,
+        "mapId": "2",
+        "confidence": 0.85
+      }
+    ]
+  }
+]

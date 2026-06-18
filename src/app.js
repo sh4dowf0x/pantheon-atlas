@@ -7,6 +7,7 @@ const { AddonLogIngestor } = require('./addonLog');
 const { EntityScannerLogIngestor } = require('./entityScannerLog');
 const { LootLogIngestor } = require('./lootLog');
 const { CommunityItemSync } = require('./itemSync');
+const { CommunityMobSync } = require('./mobSync');
 const { sampleProcessMemoryStrings } = require('./memoryProbe');
 const { openStore } = require('./store');
 const { startDashboard } = require('./dashboard');
@@ -258,6 +259,18 @@ function seedWorldEntities(store, parserContext, limit = 5000) {
 async function runApp(argv = process.argv) {
   const args = parseArgs(argv);
   const config = readConfig(args.configPath);
+  if (config.communityMobs && config.communityItems) {
+    config.communityMobs.r2 = {
+      ...(config.communityItems.r2 || {}),
+      ...(config.communityMobs.r2 || {})
+    };
+    if (config.communityItems.uploadEnabled && config.communityMobs.uploadEnabled === false) {
+      config.communityMobs.uploadEnabled = true;
+    }
+    if (config.communityItems.uploadMode && !config.communityMobs.uploadMode) {
+      config.communityMobs.uploadMode = config.communityItems.uploadMode;
+    }
+  }
   if (args.port) config.server.port = args.port;
   if (args.pid) config.pantheon.processId = args.pid;
   const selectedCharacter = await chooseCharacter(config, { character: args.character });
@@ -279,6 +292,7 @@ async function runApp(argv = process.argv) {
   let entityScannerLogIngestor = null;
   let lootLogIngestor = null;
   let communityItemSync = null;
+  let communityMobSync = null;
   let server = null;
   let retentionTimer = null;
   let memoryTimer = null;
@@ -391,6 +405,8 @@ async function runApp(argv = process.argv) {
     ),
     publicBaseUrl: config.communityItems?.publicBaseUrl || null,
     manifestUrl: config.communityItems?.manifestUrl || null,
+    downloadEveryMinutes: Number(config.communityItems?.downloadEveryMinutes || 60) || 60,
+    uploadEveryMinutes: Number(config.communityItems?.uploadEveryMinutes || 30) || 30,
     lastCheckedAt: null,
     lastDownloadedAt: null,
     lastUploadedAt: null,
@@ -398,6 +414,25 @@ async function runApp(argv = process.argv) {
     lastChangedCount: 0,
     lastUploadedCount: 0,
     lastError: config.communityItems?.enabled ? null : 'Community item sync is disabled.'
+  };
+  const communityMobStatus = () => communityMobSync?.status || {
+    enabled: Boolean(config.communityMobs?.enabled),
+    downloadEnabled: config.communityMobs?.downloadEnabled !== false,
+    uploadEnabled: Boolean(config.communityMobs?.uploadEnabled),
+    uploadMode: config.communityMobs?.uploadMode || 'r2',
+    bucket: config.communityMobs?.r2?.bucket || null,
+    r2Endpoint: config.communityMobs?.r2?.endpoint || null,
+    publicBaseUrl: config.communityMobs?.publicBaseUrl || null,
+    manifestUrl: config.communityMobs?.manifestUrl || null,
+    downloadEveryMinutes: Number(config.communityMobs?.downloadEveryMinutes || 60) || 60,
+    uploadEveryMinutes: Number(config.communityMobs?.uploadEveryMinutes || 30) || 30,
+    lastCheckedAt: null,
+    lastDownloadedAt: null,
+    lastUploadedAt: null,
+    lastDownloadedCount: 0,
+    lastChangedCount: 0,
+    lastUploadedCount: 0,
+    lastError: config.communityMobs?.enabled ? null : 'Community mob sync is disabled.'
   };
   const persistCommunityItemConfig = () => {
     try {
@@ -432,6 +467,8 @@ async function runApp(argv = process.argv) {
     if (patch.downloadEnabled !== undefined) next.downloadEnabled = Boolean(patch.downloadEnabled);
     if (patch.uploadEnabled !== undefined) next.uploadEnabled = Boolean(patch.uploadEnabled);
     if (patch.uploadMode) next.uploadMode = String(patch.uploadMode);
+    if (patch.downloadEveryMinutes !== undefined) next.downloadEveryMinutes = Math.max(1, Math.min(1440, Number(patch.downloadEveryMinutes) || 60));
+    if (patch.uploadEveryMinutes !== undefined) next.uploadEveryMinutes = Math.max(1, Math.min(1440, Number(patch.uploadEveryMinutes) || 30));
     if (patch.r2 && typeof patch.r2 === 'object') {
       next.r2 = { ...(next.r2 || {}) };
       if (patch.r2.accessKeyId) next.r2.accessKeyId = String(patch.r2.accessKeyId).trim();
@@ -450,10 +487,10 @@ async function runApp(argv = process.argv) {
     persistCommunityItemConfig();
     return communityItemStatus();
   };
-  const uploadCommunityItemsNow = async () => {
+  const uploadCommunityItemsNow = async (options = {}) => {
     const sync = ensureCommunityItemSync();
     if (!sync) return { uploaded: 0, changed: 0, status: communityItemStatus() };
-    const result = await sync.uploadChangedItems();
+    const result = await sync.uploadChangedItems(options);
     return { ...result, status: communityItemStatus() };
   };
   const downloadCommunityItemsNow = async () => {
@@ -461,6 +498,26 @@ async function runApp(argv = process.argv) {
     if (!sync) return { downloaded: 0, imported: 0, status: communityItemStatus() };
     const result = await sync.downloadCommunityItems();
     return { ...result, status: communityItemStatus() };
+  };
+  const ensureCommunityMobSync = () => {
+    if (communityMobSync || !config.communityMobs?.enabled) return communityMobSync;
+    communityMobSync = new CommunityMobSync(config.communityMobs, store, {
+      atlasVersion: require('../package.json').version
+    });
+    communityMobSync.start();
+    return communityMobSync;
+  };
+  const uploadCommunityMobsNow = async (options = {}) => {
+    const sync = ensureCommunityMobSync();
+    if (!sync) return { uploaded: 0, changed: 0, status: communityMobStatus() };
+    const result = await sync.uploadChangedMobs(options);
+    return { ...result, status: communityMobStatus() };
+  };
+  const downloadCommunityMobsNow = async () => {
+    const sync = ensureCommunityMobSync();
+    if (!sync) return { downloaded: 0, imported: 0, status: communityMobStatus() };
+    const result = await sync.downloadCommunityMobs();
+    return { ...result, status: communityMobStatus() };
   };
   const livePositionTrail = [];
   const liveLatestPositions = new Map();
@@ -549,6 +606,7 @@ async function runApp(argv = process.argv) {
     if (entityScannerLogIngestor) entityScannerLogIngestor.stop();
     if (lootLogIngestor) lootLogIngestor.stop();
     if (communityItemSync) communityItemSync.stop();
+    if (communityMobSync) communityMobSync.stop();
     const finalize = () => {
       try {
         store.close();
@@ -587,6 +645,7 @@ async function runApp(argv = process.argv) {
     lootLogIngestor.start();
   }
   ensureCommunityItemSync();
+  ensureCommunityMobSync();
 
   server = startDashboard(store, {
     port: config.server.port,
@@ -598,9 +657,12 @@ async function runApp(argv = process.argv) {
     entityScannerStatus: entityScannerLogIngestor?.status || null,
     lootLogStatus: lootLogIngestor?.status || null,
     communityItemStatus,
+    communityMobStatus,
     onCommunityItemsConfig: updateCommunityItemConfig,
     onCommunityItemsUpload: uploadCommunityItemsNow,
     onCommunityItemsDownload: downloadCommunityItemsNow,
+    onCommunityMobsUpload: uploadCommunityMobsNow,
+    onCommunityMobsDownload: downloadCommunityMobsNow,
     onRestart: () => shutdown(true)
   });
 
@@ -629,7 +691,8 @@ async function runApp(argv = process.argv) {
   if (entityScannerLogIngestor) console.log(`Entity scanner log enabled: ${entityScannerLogIngestor.status.path}`);
   if (lootLogIngestor) console.log(`Loot log enabled: ${lootLogIngestor.status.path}`);
   if (communityItemSync) console.log(`Community item sync enabled: ${communityItemSync.status.publicBaseUrl || 'upload only'}`);
-  return { config, store, addonLogIngestor, entityScannerLogIngestor, lootLogIngestor, communityItemSync, server };
+  if (communityMobSync) console.log(`Community mob sync enabled: ${communityMobSync.status.publicBaseUrl || 'upload only'}`);
+  return { config, store, addonLogIngestor, entityScannerLogIngestor, lootLogIngestor, communityItemSync, communityMobSync, server };
 }
 
 if (require.main === module) {

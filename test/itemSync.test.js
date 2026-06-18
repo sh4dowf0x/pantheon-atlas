@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const zlib = require('node:zlib');
 const { CommunityItemSync, getNormalizedItems, signedS3PutRequest } = require('../src/itemSync');
-const { writeItemArtIndex } = require('../src/itemArt');
+const { cacheLocalItemArtSync, writeItemArtIndex } = require('../src/itemArt');
 const { parseLootLogLine } = require('../src/lootLog');
 const { openStore } = require('../src/store');
 
@@ -71,23 +71,63 @@ const server = http.createServer((req, res) => {
 const r2Uploads = [];
 const r2Server = http.createServer((req, res) => {
   const chunks = [];
+  if (req.method === 'GET' && req.url === '/pantheon-item-database/items-manifest.json') {
+    res.writeHead(404, { 'Content-Type': 'application/xml' });
+    res.end('<Error><Code>NoSuchKey</Code><Message>The specified key does not exist.</Message></Error>');
+    return;
+  }
   req.on('data', (chunk) => chunks.push(chunk));
   req.on('end', () => {
+    const raw = Buffer.concat(chunks);
+    let body = null;
+    if (req.headers['content-encoding'] === 'gzip') {
+      body = JSON.parse(zlib.gunzipSync(raw).toString('utf8'));
+    } else if (raw.length && String(req.headers['content-type'] || '').includes('application/json')) {
+      body = JSON.parse(raw.toString('utf8'));
+    } else if (raw.length) {
+      body = raw;
+    }
     r2Uploads.push({
       method: req.method,
       url: req.url,
       authorization: req.headers.authorization,
+      contentType: req.headers['content-type'],
       contentEncoding: req.headers['content-encoding'],
-      body: JSON.parse(zlib.gunzipSync(Buffer.concat(chunks)).toString('utf8'))
+      body
     });
     res.writeHead(200);
     res.end();
   });
 });
+const r2ErrorServer = http.createServer((req, res) => {
+  req.resume();
+  res.writeHead(403, { 'Content-Type': 'application/xml' });
+  res.end('<Error><Code>SignatureDoesNotMatch</Code><Message>The request signature we calculated does not match.</Message><StringToSign>verbose signing internals</StringToSign></Error>');
+});
+const missingCommunityObjectServer = http.createServer((req, res) => {
+  if (req.method === 'GET' && req.url === '/items-manifest.json') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      format: 'pantheon-atlas-items-manifest-v1',
+      objects: [{ key: 'contributions/missing/items.json.gz', sha256: 'missing-sha' }]
+    }));
+    return;
+  }
+  res.writeHead(404, { 'Content-Type': 'text/html' });
+  res.end('<!doctype html><html><head><title>Not Found</title></head><body><h1>Error 404</h1><h3>Object not found</h3><p>This object does not exist or is not publicly accessible at this URL.</p><svg><path d="verbose"></path></svg></body></html>');
+});
+const missingManifestServer = http.createServer((req, res) => {
+  req.resume();
+  res.writeHead(404, { 'Content-Type': 'text/html' });
+  res.end('<!doctype html><html><head><title>Not Found</title></head><body><h1>Error 404</h1><p>This object does not exist or is not publicly accessible at this URL.</p></body></html>');
+});
 
 async function run() {
   const port = await listen(server);
   const r2Port = await listen(r2Server);
+  const r2ErrorPort = await listen(r2ErrorServer);
+  const missingCommunityObjectPort = await listen(missingCommunityObjectServer);
+  const missingManifestPort = await listen(missingManifestServer);
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-item-sync-test-'));
   const store = openStore(path.join(tempDir, 'test.sqlite'));
   const statePath = path.join(tempDir, 'sync-state.json');
@@ -193,6 +233,8 @@ async function run() {
   });
   assert.equal(signed.url, 'https://example.r2.cloudflarestorage.com/pantheon-item-database/contributions/test/items.json.gz');
   assert.match(signed.headers.authorization, /^AWS4-HMAC-SHA256 Credential=AKIA_TEST\/20260615\/auto\/s3\/aws4_request/);
+  assert.equal(signed.headers['content-sha256'], undefined);
+  assert.match(signed.headers.authorization, /SignedHeaders=content-encoding;content-type;host;x-amz-content-sha256;x-amz-date/);
 
   const r2StatePath = path.join(tempDir, 'r2-sync-state.json');
   const r2Sync = new CommunityItemSync({
@@ -211,12 +253,124 @@ async function run() {
     }
   }, store, { atlasVersion: 'test' });
   assert.deepEqual(await r2Sync.uploadChangedItems(), { uploaded: 2, changed: 2 });
-  assert.equal(r2Uploads.length, 1);
+  assert.equal(r2Uploads.length, 2);
   assert.equal(r2Uploads[0].method, 'PUT');
   assert.match(r2Uploads[0].url, /^\/pantheon-item-database\/contributions\/test-install\/items-/);
   assert.match(r2Uploads[0].authorization, /^AWS4-HMAC-SHA256 /);
   assert.equal(r2Uploads[0].contentEncoding, 'gzip');
   assert.ok(r2Uploads[0].body.items.some((item) => item.name === 'Test Helm'));
+  assert.equal(r2Uploads[1].method, 'PUT');
+  assert.equal(r2Uploads[1].url, '/pantheon-item-database/items-manifest.json');
+  assert.equal(r2Uploads[1].contentType, 'application/json');
+  assert.equal(r2Uploads[1].contentEncoding, undefined);
+  assert.equal(r2Uploads[1].body.objects.length, 1);
+  assert.equal(r2Uploads[1].body.objects[0].key, r2Uploads[0].url.replace(/^\/pantheon-item-database\//, ''));
+
+  const r2BeforeFullUpload = r2Uploads.length;
+  assert.deepEqual(await r2Sync.uploadChangedItems(), { uploaded: 0, changed: 0 });
+  assert.equal(r2Uploads.length, r2BeforeFullUpload);
+  assert.deepEqual(await r2Sync.uploadChangedItems({ full: true }), { uploaded: 2, changed: 2 });
+  assert.equal(r2Uploads.length, r2BeforeFullUpload + 2);
+  assert.ok(r2Uploads[r2BeforeFullUpload].body.items.some((item) => item.name === 'Test Helm'));
+
+  const iconStore = openStore(path.join(tempDir, 'icon-sync.sqlite'));
+  const iconBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x01, 0x02, 0x03, 0x04]);
+  const iconSourcePath = path.join(tempDir, 'Icon_Sync_Helm.png');
+  fs.writeFileSync(iconSourcePath, iconBytes);
+  const cachedIcon = cacheLocalItemArtSync(iconSourcePath, { iconKey: 'Icon_Sync_Helm', itemName: 'Icon Sync Helm' });
+  iconStore.upsertLootItem({
+    observedAt: '2026-06-15T04:00:00.000Z',
+    itemId: 'icon-sync-1',
+    name: 'Icon Sync Helm',
+    rarity: 'Rare',
+    itemType: 'Armor',
+    armorTypeName: 'Plate',
+    flagsJson: JSON.stringify(['Magic']),
+    statsJson: JSON.stringify({ statModifiers: [{ stat: 'Armor', value: 28 }] }),
+    templateJson: JSON.stringify({
+      itemId: 'icon-sync-1',
+      itemName: 'Icon Sync Helm',
+      itemType: 'Armor',
+      rarity: 'Rare',
+      armorTypeName: 'Plate',
+      equipSlotName: 'Head',
+      iconKey: 'Icon_Sync_Helm',
+      artUrl: cachedIcon.artUrl,
+      artSource: 'lootdata'
+    })
+  });
+  r2Uploads.length = 0;
+  const r2IconSync = new CommunityItemSync({
+    enabled: true,
+    uploadEnabled: true,
+    uploadMode: 'r2',
+    statePath: path.join(tempDir, 'r2-icon-sync-state.json'),
+    batchSize: 10,
+    installId: 'icon-install',
+    publicBaseUrl: 'https://pub-test.r2.dev',
+    r2: {
+      endpoint: `http://127.0.0.1:${r2Port}`,
+      bucket: 'pantheon-item-database',
+      accessKeyId: 'AKIA_TEST',
+      secretAccessKey: 'SECRET_TEST',
+      objectPrefix: 'contributions',
+      iconPrefix: 'item-icons'
+    }
+  }, iconStore, { atlasVersion: 'test' });
+  assert.deepEqual(await r2IconSync.uploadChangedItems(), { uploaded: 1, changed: 1 });
+  assert.equal(r2Uploads.length, 3);
+  const iconPut = r2Uploads.find((row) => row.contentType === 'image/png');
+  assert.ok(iconPut);
+  assert.match(iconPut.url, /^\/pantheon-item-database\/item-icons\/Icon_Sync_Helm_[0-9a-f]{16}\.png$/);
+  assert.deepEqual(iconPut.body, iconBytes);
+  const itemPut = r2Uploads.find((row) => row.contentEncoding === 'gzip');
+  const uploadedIconItem = itemPut.body.items.find((item) => item.itemId === 'icon-sync-1');
+  assert.match(uploadedIconItem.artUrl, /^https:\/\/pub-test\.r2\.dev\/item-icons\/Icon_Sync_Helm_[0-9a-f]{16}\.png$/);
+  assert.equal(uploadedIconItem.artObjectKey, iconPut.url.replace(/^\/pantheon-item-database\//, ''));
+  iconStore.close();
+
+  const r2ErrorSync = new CommunityItemSync({
+    enabled: true,
+    uploadEnabled: true,
+    uploadMode: 'r2',
+    statePath: path.join(tempDir, 'r2-error-sync-state.json'),
+    batchSize: 10,
+    installId: 'test-install',
+    r2: {
+      endpoint: `http://127.0.0.1:${r2ErrorPort}`,
+      bucket: 'pantheon-item-database',
+      accessKeyId: 'AKIA_TEST',
+      secretAccessKey: 'SECRET_TEST'
+    }
+  }, store, { atlasVersion: 'test' });
+  await assert.rejects(
+    () => r2ErrorSync.uploadChangedItems(),
+    /R2 item upload failed: 403 SignatureDoesNotMatch: The request signature we calculated does not match\./
+  );
+  assert.doesNotMatch(r2ErrorSync.status.lastError, /StringToSign/);
+
+  const missingObjectSync = new CommunityItemSync({
+    enabled: true,
+    downloadEnabled: true,
+    uploadEnabled: false,
+    manifestUrl: `http://127.0.0.1:${missingCommunityObjectPort}/items-manifest.json`,
+    publicBaseUrl: `http://127.0.0.1:${missingCommunityObjectPort}`,
+    statePath: path.join(tempDir, 'missing-object-sync-state.json')
+  }, store, { atlasVersion: 'test' });
+  assert.deepEqual(await missingObjectSync.downloadCommunityItems(), { downloaded: 0, imported: 0, skipped: 1 });
+  assert.equal(missingObjectSync.status.lastError, 'Skipped 1 unavailable community item object.');
+  assert.doesNotMatch(missingObjectSync.status.lastError, /doctype|svg|Object not found/);
+
+  const missingManifestSync = new CommunityItemSync({
+    enabled: true,
+    downloadEnabled: true,
+    uploadEnabled: false,
+    manifestUrl: `http://127.0.0.1:${missingManifestPort}/items-manifest.json`,
+    publicBaseUrl: `http://127.0.0.1:${missingManifestPort}`,
+    statePath: path.join(tempDir, 'missing-manifest-sync-state.json')
+  }, store, { atlasVersion: 'test' });
+  assert.deepEqual(await missingManifestSync.downloadCommunityItems(), { downloaded: 0, imported: 0 });
+  assert.equal(missingManifestSync.status.lastError, null);
 
   const preserveDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-art-preserve-test-'));
   const preserveStore = openStore(path.join(preserveDir, 'test.sqlite'));
@@ -296,6 +450,9 @@ async function run() {
   fs.rmSync(tempDir, { recursive: true, force: true });
   await close(server);
   await close(r2Server);
+  await close(r2ErrorServer);
+  await close(missingCommunityObjectServer);
+  await close(missingManifestServer);
 }
 
 run().then(() => {
@@ -304,5 +461,8 @@ run().then(() => {
   console.error(error);
   await close(server).catch(() => {});
   await close(r2Server).catch(() => {});
+  await close(r2ErrorServer).catch(() => {});
+  await close(missingCommunityObjectServer).catch(() => {});
+  await close(missingManifestServer).catch(() => {});
   process.exitCode = 1;
 });

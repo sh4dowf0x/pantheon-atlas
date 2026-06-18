@@ -1414,41 +1414,34 @@ assert.equal(brineclawRow.disposition, 'prepared to attack');
 const vaelrisRow = petMapRows.find((row) => row.entityId === '76770000');
 assert.equal(vaelrisRow.priorityCandidate, true);
 
-const namedMobImportedAt = new Date().toISOString();
+store.insertEvent({
+  observedAt: new Date().toISOString(),
+  eventType: 'world_entity',
+  source: 'EntityScanner',
+  target: 'Hssyr the Wretch',
+  ability: 'entityKind:mob',
+  amount: 15,
+  damageType: 'hssyr10000',
+  x: 38,
+  y: 21,
+  z: 0,
+  rawText: '[EntityScanner] Hssyr the Wretch',
+  eventKey: 'known-named-hssyr-test'
+});
+const knownNamedSummary = getMobSummary(store.db, { search: 'Hssyr' });
+assert.equal(knownNamedSummary.rows[0].name, 'Hssyr the Wretch');
+assert.equal(knownNamedSummary.rows[0].named, true);
+assert.equal(knownNamedSummary.rows[0].namedName, 'Hssyr the Wretch');
+assert.equal(knownNamedSummary.rows[0].zoneName, "Avendyr's Pass");
+const knownNamedDetail = getMobDetail(store.db, 'Hssyr the Wretch');
+assert.equal(knownNamedDetail.named, true);
+assert.equal(knownNamedDetail.location, 'Halnir Cave');
+
 store.db.prepare(`
-  INSERT INTO named_mobs (
-    shalazam_id, slug, name, location, zone, level_min, level_max, difficulty,
-    spawn, faction, source_url, imported_at, last_seen_source_at
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`).run(
-  9001,
-  'vaelris-the-deadheart',
-  'Vaelris the Deadheart',
-  'Deadheart clearing',
-  'Wilds End',
-  12,
-  14,
-  'Named',
-  null,
-  null,
-  'https://shalazam.info/monster/9001',
-  namedMobImportedAt,
-  namedMobImportedAt
-);
-store.db.prepare(`
-  INSERT INTO named_mob_aliases (
-    shalazam_id, alias, normalized_alias, role, confidence, source, first_seen, last_seen
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-`).run(
-  9001,
-  'Vaelris the Deadheart',
-  'vaelris the deadheart',
-  'named',
-  1,
-  'test',
-  namedMobImportedAt,
-  namedMobImportedAt
-);
+  UPDATE named_mobs
+  SET location = ?, zone = ?, level_min = ?, level_max = ?
+  WHERE shalazam_id = ?
+`).run('Deadheart clearing', 'Wilds End', 12, 14, 117);
 
 const mobSummary = getMobSummary(store.db, { search: 'Vaelris' });
 assert.equal(mobSummary.rows[0].name, 'Vaelris the Deadheart');

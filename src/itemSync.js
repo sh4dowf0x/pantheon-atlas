@@ -2,7 +2,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const zlib = require('node:zlib');
-const { itemArtUrlForName } = require('./itemArt');
+const { LOCAL_ITEM_ART_PROTOCOL, itemArtCachePath, itemArtContentType, itemArtUrlForName } = require('./itemArt');
 
 function parseJson(value, fallback) {
   try {
@@ -269,8 +269,10 @@ function publicObjectUrl(config, row) {
 async function fetchJsonMaybeGzip(url) {
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) {
-    const text = await response.text().catch(() => '');
-    throw new Error(`Community item download failed: ${response.status} ${text}`.trim());
+    const error = new Error(`Community item download failed: ${await responseErrorText(response)}`);
+    error.status = response.status;
+    error.url = url;
+    throw error;
   }
   const raw = Buffer.from(await response.arrayBuffer());
   const encoding = String(response.headers.get('content-encoding') || '').toLowerCase();
@@ -284,6 +286,17 @@ async function fetchJsonMaybeGzip(url) {
     }
   }
   return JSON.parse(body.toString('utf8'));
+}
+
+async function fetchCommunityManifest(url) {
+  try {
+    return await fetchJsonMaybeGzip(url);
+  } catch (error) {
+    if (error.status === 404) {
+      return { format: 'pantheon-atlas-items-manifest-v1', objects: [] };
+    }
+    throw error;
+  }
 }
 
 function hmac(key, value, encoding) {
@@ -305,7 +318,7 @@ function signingKey(secretAccessKey, dateStamp, region, service) {
   return hmac(kService, 'aws4_request');
 }
 
-function signedS3PutRequest({ endpoint, bucket, key, accessKeyId, secretAccessKey, body, contentType = 'application/json', contentEncoding = 'gzip', region = 'auto', now = new Date() }) {
+function signedS3Request({ endpoint, bucket, key, accessKeyId, secretAccessKey, method = 'PUT', body = Buffer.alloc(0), contentType = null, contentEncoding = null, region = 'auto', now = new Date() }) {
   const missing = [
     endpoint ? null : 'endpoint',
     bucket ? null : 'bucket',
@@ -322,17 +335,16 @@ function signedS3PutRequest({ endpoint, bucket, key, accessKeyId, secretAccessKe
   const dateStamp = date.slice(0, 8);
   const payloadHash = sha256(body);
   const headers = {
-    'content-encoding': contentEncoding,
-    'content-sha256': payloadHash,
-    'content-type': contentType,
     host: url.host,
     'x-amz-content-sha256': payloadHash,
     'x-amz-date': date
   };
+  if (contentEncoding) headers['content-encoding'] = contentEncoding;
+  if (contentType) headers['content-type'] = contentType;
   const signedHeaders = Object.keys(headers).sort().join(';');
   const canonicalHeaders = Object.keys(headers).sort().map((name) => `${name}:${headers[name]}\n`).join('');
   const canonicalRequest = [
-    'PUT',
+    method.toUpperCase(),
     url.pathname,
     '',
     canonicalHeaders,
@@ -349,6 +361,39 @@ function signedS3PutRequest({ endpoint, bucket, key, accessKeyId, secretAccessKe
   const signature = hmac(signingKey(secretAccessKey, dateStamp, region, 's3'), stringToSign, 'hex');
   headers.authorization = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
   return { url: url.toString(), headers };
+}
+
+function signedS3PutRequest(options) {
+  return signedS3Request({
+    ...options,
+    method: 'PUT',
+    contentType: options.contentType || 'application/json',
+    contentEncoding: options.contentEncoding || 'gzip'
+  });
+}
+
+function compactHttpErrorText(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return '';
+  try {
+    const parsed = JSON.parse(raw);
+    return String(parsed.error || parsed.message || raw).trim();
+  } catch {
+    const code = raw.match(/<Code>([^<]+)<\/Code>/i)?.[1];
+    const message = raw.match(/<Message>([^<]+)<\/Message>/i)?.[1];
+    if (code || message) return [code, message].filter(Boolean).join(': ');
+    const title = raw.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1];
+    const heading = raw.match(/<h[1-3][^>]*>([^<]+)<\/h[1-3]>/i)?.[1];
+    const paragraph = raw.match(/<p[^>]*>([^<]+)<\/p>/i)?.[1];
+    if (title || heading || paragraph) return [title, heading, paragraph].filter(Boolean).join(': ').replace(/\s+/g, ' ').slice(0, 500);
+    return raw.replace(/\s+/g, ' ').slice(0, 500);
+  }
+}
+
+async function responseErrorText(response) {
+  const text = await response.text().catch(() => '');
+  const compact = compactHttpErrorText(text);
+  return compact ? `${response.status} ${compact}` : String(response.status);
 }
 
 async function postJsonGzip(url, payload, config = {}) {
@@ -369,8 +414,7 @@ async function postJsonGzip(url, payload, config = {}) {
     body
   });
   if (!response.ok) {
-    const text = await response.text().catch(() => '');
-    throw new Error(`Community item upload failed: ${response.status} ${text}`.trim());
+    throw new Error(`Community item upload failed: ${await responseErrorText(response)}`);
   }
   const text = await response.text().catch(() => '');
   if (!text) return { response };
@@ -395,37 +439,185 @@ function r2ObjectKey(config, payload) {
   const installId = String(payload.installId || config.installId || 'anonymous').replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 80) || 'anonymous';
   const stamp = payload.generatedAt.replace(/[:-]|\.\d{3}/g, '').replace(/\D/g, '').slice(0, 14);
   const digest = hashObject(payload).slice(0, 16);
-  return `${prefix}/${installId}/items-${stamp}-${digest}.json.gz`;
+  const label = String(config.payloadLabel || 'items').replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 40) || 'items';
+  return `${prefix}/${installId}/${label}-${stamp}-${digest}.json.gz`;
 }
 
-async function putJsonGzipToR2(config, payload) {
-  const body = zlib.gzipSync(Buffer.from(JSON.stringify(payload), 'utf8'));
-  const accessKeyId = resolveSecret(config.accessKeyId, config.accessKeyIdEnv || 'PANTHEON_ATLAS_R2_ACCESS_KEY_ID');
-  const secretAccessKey = resolveSecret(config.secretAccessKey, config.secretAccessKeyEnv || 'PANTHEON_ATLAS_R2_SECRET_ACCESS_KEY');
-  const key = r2ObjectKey(config, payload);
-  const request = signedS3PutRequest({
+function r2ManifestKey(config) {
+  return String(config.manifestKey || 'items-manifest.json').replace(/^\/+/, '') || 'items-manifest.json';
+}
+
+function isLocalItemArtUrl(value) {
+  return String(value || '').trim().startsWith(LOCAL_ITEM_ART_PROTOCOL);
+}
+
+function r2PublicObjectUrl(config, key) {
+  const base = String(config.publicBaseUrl || '').trim().replace(/\/+$/, '');
+  if (!base) return null;
+  return `${base}/${String(key || '').split('/').map((part) => encodeURIComponent(part)).join('/')}`;
+}
+
+function r2IconObjectKey(config, filePath) {
+  const prefix = String(config.iconPrefix || 'item-icons').replace(/^\/+|\/+$/g, '') || 'item-icons';
+  const basename = path.basename(filePath).replace(/[^a-z0-9._-]+/gi, '_') || 'item-icon.png';
+  return `${prefix}/${basename}`;
+}
+
+async function signedR2Fetch(config, credentials, { method = 'GET', key, body = Buffer.alloc(0), contentType = null, contentEncoding = null }) {
+  const request = signedS3Request({
     endpoint: config.endpoint,
     bucket: config.bucket,
     key,
-    accessKeyId,
-    secretAccessKey,
+    accessKeyId: credentials.accessKeyId,
+    secretAccessKey: credentials.secretAccessKey,
+    method,
     body,
+    contentType,
+    contentEncoding,
     region: config.region || 'auto'
   });
-  const response = await fetch(request.url, {
+  const init = {
+    method,
+    headers: request.headers
+  };
+  if (method !== 'GET' && method !== 'HEAD') init.body = body;
+  return fetch(request.url, init);
+}
+
+async function readR2Manifest(config, credentials) {
+  const response = await signedR2Fetch(config, credentials, {
+    method: 'GET',
+    key: r2ManifestKey(config)
+  });
+  if (response.status === 404) return { format: config.manifestFormat || 'pantheon-atlas-items-manifest-v1', objects: [] };
+  if (!response.ok) throw new Error(`R2 manifest read failed: ${await responseErrorText(response)}`);
+  const text = await response.text();
+  try {
+    const parsed = JSON.parse(text);
+    return {
+      format: config.manifestFormat || 'pantheon-atlas-items-manifest-v1',
+      generatedAt: parsed.generatedAt || null,
+      objects: Array.isArray(parsed.objects) ? parsed.objects : []
+    };
+  } catch (error) {
+    throw new Error(`R2 manifest read failed: invalid JSON (${error.message})`);
+  }
+}
+
+async function updateR2Manifest(config, credentials, row) {
+  const manifest = await readR2Manifest(config, credentials);
+  const objects = manifest.objects.filter((item) => item && item.key !== row.key);
+  objects.unshift(row);
+  const next = {
+    format: config.manifestFormat || 'pantheon-atlas-items-manifest-v1',
+    generatedAt: new Date().toISOString(),
+    objects: objects.slice(0, 5000)
+  };
+  const body = Buffer.from(JSON.stringify(next, null, 2), 'utf8');
+  const response = await signedR2Fetch(config, credentials, {
     method: 'PUT',
-    headers: request.headers,
-    body
+    key: r2ManifestKey(config),
+    body,
+    contentType: 'application/json'
+  });
+  if (!response.ok) throw new Error(`R2 manifest update failed: ${await responseErrorText(response)}`);
+  return next;
+}
+
+async function uploadR2ItemIcon(config, credentials, item, uploadedKeys) {
+  const artUrl = String(item?.artUrl || '').trim();
+  if (!isLocalItemArtUrl(artUrl)) return null;
+  const filePath = itemArtCachePath(artUrl);
+  if (!filePath) throw new Error(`R2 item icon upload failed: unsupported local item icon for ${item.name || item.itemId || 'item'}.`);
+  let body;
+  try {
+    body = await fs.promises.readFile(filePath);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      throw new Error(`R2 item icon upload failed: missing local item icon for ${item.name || item.itemId || 'item'}.`);
+    }
+    throw error;
+  }
+  const key = r2IconObjectKey(config, filePath);
+  const publicUrl = r2PublicObjectUrl(config, key);
+  if (!publicUrl) throw new Error('R2 item icon upload failed: publicBaseUrl is required to publish item art URLs.');
+  if (!uploadedKeys.has(key)) {
+    const response = await signedR2Fetch(config, credentials, {
+      method: 'PUT',
+      key,
+      body,
+      contentType: itemArtContentType(artUrl)
+    });
+    if (!response.ok) throw new Error(`R2 item icon upload failed: ${await responseErrorText(response)}`);
+    uploadedKeys.add(key);
+  }
+  return { key, publicUrl };
+}
+
+async function prepareR2PayloadWithArt(config, credentials, payload) {
+  if (!Array.isArray(payload?.items) || !payload.items.some((item) => isLocalItemArtUrl(item?.artUrl))) {
+    return { payload, artUploaded: 0 };
+  }
+  const uploadedKeys = new Set();
+  let artUploaded = 0;
+  const items = [];
+  for (const item of payload.items) {
+    const uploaded = await uploadR2ItemIcon(config, credentials, item, uploadedKeys);
+    if (!uploaded) {
+      items.push(item);
+      continue;
+    }
+    artUploaded += 1;
+    items.push({
+      ...item,
+      artUrl: uploaded.publicUrl,
+      artSource: item.artSource || 'lootdata-r2',
+      artObjectKey: uploaded.key
+    });
+  }
+  return {
+    payload: { ...payload, items },
+    artUploaded
+  };
+}
+
+async function putJsonGzipToR2(config, payload) {
+  const accessKeyId = resolveSecret(config.accessKeyId, config.accessKeyIdEnv || 'PANTHEON_ATLAS_R2_ACCESS_KEY_ID');
+  const secretAccessKey = resolveSecret(config.secretAccessKey, config.secretAccessKeyEnv || 'PANTHEON_ATLAS_R2_SECRET_ACCESS_KEY');
+  const credentials = { accessKeyId, secretAccessKey };
+  const prepared = config.preparePayload
+    ? await config.preparePayload(config, credentials, payload)
+    : await prepareR2PayloadWithArt(config, credentials, payload);
+  const uploadPayload = prepared.payload;
+  const body = zlib.gzipSync(Buffer.from(JSON.stringify(uploadPayload), 'utf8'));
+  const key = r2ObjectKey(config, uploadPayload);
+  const response = await signedR2Fetch(config, credentials, {
+    method: 'PUT',
+    key,
+    body,
+    contentType: 'application/json',
+    contentEncoding: 'gzip'
   });
   if (!response.ok) {
-    const text = await response.text().catch(() => '');
-    throw new Error(`R2 item upload failed: ${response.status} ${text}`.trim());
+    throw new Error(`R2 item upload failed: ${await responseErrorText(response)}`);
   }
-  return { response, key };
+  await updateR2Manifest(config, credentials, {
+    key,
+    sha256: sha256(body),
+    generatedAt: uploadPayload.generatedAt || new Date().toISOString(),
+    uploadedAt: new Date().toISOString(),
+    installId: uploadPayload.installId || 'anonymous'
+  });
+  return { response, key, artUploaded: prepared.artUploaded };
 }
 
 async function uploadPayload(config, payload) {
-  if (config.uploadMode === 'r2') return putJsonGzipToR2(config.r2 || {}, payload);
+  if (config.uploadMode === 'r2') {
+    return putJsonGzipToR2({
+      ...(config.r2 || {}),
+      publicBaseUrl: config.publicBaseUrl || config.r2?.publicBaseUrl || null
+    }, payload);
+  }
   return postJsonGzip(config.uploadEndpoint, payload, config);
 }
 
@@ -451,6 +643,8 @@ class CommunityItemSync {
       r2SecretKeyConfigured: hasSecret(this.config.r2?.secretAccessKey, this.config.r2?.secretAccessKeyEnv || 'PANTHEON_ATLAS_R2_SECRET_ACCESS_KEY'),
       publicBaseUrl: this.config.publicBaseUrl || null,
       manifestUrl: this.config.manifestUrl || null,
+      downloadEveryMinutes: Number(this.config.downloadEveryMinutes || 60) || 60,
+      uploadEveryMinutes: Number(this.config.uploadEveryMinutes || 30) || 30,
       lastCheckedAt: null,
       lastDownloadedAt: null,
       lastUploadedAt: null,
@@ -493,16 +687,27 @@ class CommunityItemSync {
       const state = loadState(statePath);
       state.downloadedKeys = state.downloadedKeys || {};
       state.itemHashes = state.itemHashes || {};
-      const manifest = await fetchJsonMaybeGzip(this.config.manifestUrl);
+      const manifest = await fetchCommunityManifest(this.config.manifestUrl);
       const rows = normalizeManifestRows(manifest);
       let downloaded = 0;
       let imported = 0;
+      let skipped = 0;
       for (const row of rows) {
         const key = row.key || row.url;
         if (!key || state.downloadedKeys[key] === (row.sha256 || true)) continue;
         const url = publicObjectUrl(this.config, row);
         if (!url) continue;
-        const payload = await fetchJsonMaybeGzip(url);
+        let payload = null;
+        try {
+          payload = await fetchJsonMaybeGzip(url);
+        } catch (error) {
+          if (error.status === 404 || error.status === 403) {
+            skipped += 1;
+            state.downloadedKeys[key] = row.sha256 || `unavailable:${error.status}`;
+            continue;
+          }
+          throw error;
+        }
         const items = Array.isArray(payload?.items) ? payload.items : Array.isArray(payload) ? payload : [];
         const observedAt = payload?.generatedAt || row.generatedAt || new Date().toISOString();
         downloaded += 1;
@@ -538,8 +743,8 @@ class CommunityItemSync {
       saveState(statePath, state);
       this.status.lastDownloadedAt = state.lastDownloadedAt;
       this.status.lastDownloadedCount = imported;
-      this.status.lastError = null;
-      return { downloaded, imported };
+      this.status.lastError = skipped ? `Skipped ${skipped} unavailable community item object${skipped === 1 ? '' : 's'}.` : null;
+      return skipped ? { downloaded, imported, skipped } : { downloaded, imported };
     } catch (error) {
       this.status.lastError = error.message;
       throw error;
@@ -548,7 +753,7 @@ class CommunityItemSync {
     }
   }
 
-  async uploadChangedItems() {
+  async uploadChangedItems(options = {}) {
     if (this.uploadBusy || !this.config.uploadEnabled) return { uploaded: 0, changed: 0 };
     if (this.config.uploadMode === 'r2') {
       if (!this.config.r2?.endpoint || !this.config.r2?.bucket) {
@@ -566,9 +771,10 @@ class CommunityItemSync {
     try {
       const statePath = this.config.statePath || path.resolve(process.cwd(), 'data', 'community-item-sync.json');
       const state = loadState(statePath);
-      const items = getNormalizedItems(this.store.db, this.config.maxItems || 5000);
-      const changes = changedItems(items, state);
-      const batchSize = Math.max(1, Math.min(500, Number(this.config.batchSize || 100)));
+      const maxItems = Math.max(1, Math.min(50_000, Number(this.config.maxItems || 5000)));
+      const items = getNormalizedItems(this.store.db, maxItems);
+      const changes = options.full ? items.map((item) => ({ item, hash: hashItemContent(item) })) : changedItems(items, state);
+      const batchSize = options.full ? maxItems : Math.max(1, Math.min(500, Number(this.config.batchSize || 100)));
       const batch = changes.slice(0, batchSize);
       this.status.lastChangedCount = changes.length;
       if (!batch.length) {
@@ -603,13 +809,21 @@ class CommunityItemSync {
 module.exports = {
   CommunityItemSync,
   changedItems,
+  fetchCommunityManifest,
+  fetchJsonMaybeGzip,
   contributionPayload,
   getNormalizedItems,
   hashItemContent,
   hashObject,
   itemRecordFromCommunityItem,
+  loadState,
   normalizeItemRow,
   normalizeManifestRows,
+  publicObjectUrl,
   r2ObjectKey,
+  resolveSecret,
+  saveState,
+  sha256,
+  signedR2Fetch,
   signedS3PutRequest
 };

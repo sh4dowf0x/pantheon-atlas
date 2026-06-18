@@ -181,6 +181,12 @@ h2 { font-size: 15px; line-height: 1.25; font-weight: 700; }
   white-space: nowrap;
 }
 
+.panel-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 
@@ -967,9 +973,18 @@ th {
   margin-top: 14px;
 }
 
-.community-sync-controls {
+.settings-grid {
   display: grid;
-  grid-template-columns: auto auto minmax(120px, 150px) minmax(150px, 1fr) minmax(150px, 1fr) auto auto;
+  gap: 14px;
+}
+
+.settings-grid .community-sync-panel {
+  margin-top: 0;
+}
+
+.community-sync-controls {
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
   padding: 10px;
@@ -985,6 +1000,7 @@ th {
 }
 
 .community-sync-controls select,
+.community-sync-controls input[type="number"],
 .community-sync-controls input[type="password"] {
   min-width: 0;
   height: 34px;
@@ -994,6 +1010,14 @@ th {
   color: var(--text);
   font: inherit;
   font-size: 13px;
+}
+
+.community-sync-controls input[type="number"] {
+  width: 72px;
+}
+
+.community-sync-controls input[type="password"] {
+  flex: 1 1 180px;
 }
 
 #community-sync-details {

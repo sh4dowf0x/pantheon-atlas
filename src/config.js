@@ -96,6 +96,28 @@ const DEFAULT_CONFIG = {
       accessKeyIdEnv: 'PANTHEON_ATLAS_R2_ACCESS_KEY_ID',
       secretAccessKeyEnv: 'PANTHEON_ATLAS_R2_SECRET_ACCESS_KEY'
     }
+  },
+  communityMobs: {
+    enabled: true,
+    downloadEnabled: true,
+    uploadEnabled: false,
+    uploadMode: 'r2',
+    publicBaseUrl: 'https://pub-bb6b866e2c73493f83b42111abb2e1c9.r2.dev',
+    manifestUrl: 'https://pub-bb6b866e2c73493f83b42111abb2e1c9.r2.dev/mobs-manifest.json',
+    downloadEveryMinutes: 60,
+    uploadEveryMinutes: 30,
+    batchSize: 100,
+    maxMobs: 5000,
+    statePath: 'data/community-mob-sync.json',
+    r2: {
+      endpoint: 'https://7e51af449fba623b17c429354bda9f69.r2.cloudflarestorage.com',
+      bucket: 'pantheon-item-database',
+      region: 'auto',
+      objectPrefix: 'mob-contributions',
+      manifestKey: 'mobs-manifest.json',
+      accessKeyIdEnv: 'PANTHEON_ATLAS_R2_ACCESS_KEY_ID',
+      secretAccessKeyEnv: 'PANTHEON_ATLAS_R2_SECRET_ACCESS_KEY'
+    }
   }
 };
 
@@ -137,6 +159,7 @@ function readConfig(configPath = path.join(DATA_ROOT, 'config.json')) {
   if (config.entityScannerLogs?.liveFile) config.entityScannerLogs.liveFile = resolveFromRoot(config.entityScannerLogs.liveFile);
   if (config.lootLogs?.liveFile) config.lootLogs.liveFile = resolveFromRoot(config.lootLogs.liveFile);
   if (config.communityItems?.statePath) config.communityItems.statePath = resolveFromRoot(config.communityItems.statePath);
+  if (config.communityMobs?.statePath) config.communityMobs.statePath = resolveFromRoot(config.communityMobs.statePath);
   return config;
 }
 

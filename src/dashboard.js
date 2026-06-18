@@ -4,7 +4,7 @@ const http = require('node:http');
 const path = require('node:path');
 const { URL } = require('node:url');
 const { inferAbilityClass, normalizeAbilityName } = require('./abilityRegistry');
-const { cacheItemArt, isAllowedItemArtUrl, itemArtUrlForName, readCachedItemArt } = require('./itemArt');
+const { cacheItemArt, isAllowedItemArtUrl, itemArtContentType, itemArtUrlForName, readCachedItemArt } = require('./itemArt');
 const { extractSpawnRecords } = require('./parser');
 const { getNamedMobSummary, normalizeMobName } = require('./namedMobs');
 
@@ -520,7 +520,7 @@ async function sendRemoteImage(res, url) {
       data = await readCachedItemArt(url);
     }
     if (!data) throw new Error('Item art cache miss');
-    sendBuffer(res, 200, data, 'image/webp');
+    sendBuffer(res, 200, data, itemArtContentType(url));
   } catch (error) {
     sendJson(res, 502, { error: error.message || 'Image fetch failed' });
   }
@@ -1344,6 +1344,65 @@ function buildMobIndex(db) {
     if (mob.levelMax === null && Number.isFinite(Number(named.levelMax))) mob.levelMax = Number(named.levelMax);
   }
 
+  const communityRows = db.prepare(`
+    SELECT payload_json payloadJson
+    FROM community_mobs
+    ORDER BY last_seen DESC, updated_at DESC
+    LIMIT 20000
+  `).all();
+  for (const row of communityRows) {
+    const payload = parseJsonObject(row.payloadJson);
+    const mob = addMob(payload.name);
+    if (!mob) continue;
+    mob.community = true;
+    if (payload.named) {
+      mob.named = true;
+      mob.namedName = mob.namedName || payload.namedName || payload.name;
+      mob.namedLocation = mob.namedLocation || payload.location || null;
+      mob.namedZone = mob.namedZone || payload.zoneName || null;
+      mob.namedSourceUrl = mob.namedSourceUrl || payload.namedSourceUrl || null;
+    }
+    if (!mob.className && payload.className) mob.className = payload.className;
+    if (!mob.race && payload.race) mob.race = payload.race;
+    if (!mob.kind && payload.kind) mob.kind = payload.kind;
+    if (mob.levelMin === null && Number.isFinite(Number(payload.levelMin))) mob.levelMin = Number(payload.levelMin);
+    if (mob.levelMax === null && Number.isFinite(Number(payload.levelMax))) mob.levelMax = Number(payload.levelMax);
+    if (!mob.firstSeen || (payload.firstSeen && payload.firstSeen < mob.firstSeen)) mob.firstSeen = payload.firstSeen || mob.firstSeen;
+    if (!mob.lastSeen || (payload.lastSeen && payload.lastSeen > mob.lastSeen)) mob.lastSeen = payload.lastSeen || mob.lastSeen;
+    mob.seenCount = Math.max(mob.seenCount, Number(payload.seenCount || 0));
+    mob.killCount = Math.max(mob.killCount, Number(payload.killCount || 0));
+    mob.combatEvents = Math.max(mob.combatEvents, Number(payload.combatEvents || 0));
+    mob.damageDone = Math.max(mob.damageDone, Number(payload.damageDone || 0));
+    mob.damageTaken = Math.max(mob.damageTaken, Number(payload.damageTaken || 0));
+    if (!mob.locationObservedAt && payload.lastLocation) {
+      mob.lastX = Number.isFinite(Number(payload.lastLocation.x)) ? Number(payload.lastLocation.x) : mob.lastX;
+      mob.lastY = Number.isFinite(Number(payload.lastLocation.y)) ? Number(payload.lastLocation.y) : mob.lastY;
+      mob.lastZ = Number.isFinite(Number(payload.lastLocation.z)) ? Number(payload.lastLocation.z) : mob.lastZ;
+      mob.locationObservedAt = payload.lastLocation.observedAt || payload.lastSeen || null;
+    }
+    for (const ability of Array.isArray(payload.abilities) ? payload.abilities : []) {
+      const name = String(ability.ability || '').trim();
+      if (!name || mob.abilities.has(name)) continue;
+      mob.abilities.set(name, {
+        ability: name,
+        count: Number(ability.count || 0),
+        totalDamage: Number(ability.totalDamage || 0),
+        lastSeen: ability.lastSeen || payload.lastSeen || null
+      });
+    }
+    for (const drop of Array.isArray(payload.drops) ? payload.drops : []) {
+      const key = String(drop.itemId || drop.name || '').trim();
+      if (!key || mob.drops.has(key)) continue;
+      mob.drops.set(key, {
+        itemId: String(drop.itemId || key),
+        name: drop.name || key,
+        rarity: drop.rarity || null,
+        count: Number(drop.count || 0),
+        lastSeen: drop.lastSeen || payload.lastSeen || null
+      });
+    }
+  }
+
   return mobs;
 }
 
@@ -1366,6 +1425,7 @@ function publicMobRow(mob) {
     named: Boolean(mob.named),
     namedName: mob.namedName || null,
     namedSourceUrl: mob.namedSourceUrl || null,
+    community: Boolean(mob.community),
     className: mob.className || (inferredClass?.className !== 'Unknown' ? inferredClass.className : null),
     classConfidence: mob.className ? 100 : inferredClass?.classConfidence || 0,
     race: mob.race || null,
@@ -3267,6 +3327,7 @@ function createServer(store, options = {}) {
           entityScanner: options.entityScannerStatus || null,
           lootLog: options.lootLogStatus || null,
           communityItems: communityItemStatus(),
+          communityMobs: typeof options.communityMobStatus === 'function' ? options.communityMobStatus() : null,
           summary: getSummary(db, since)
         });
         return;
@@ -3290,7 +3351,8 @@ function createServer(store, options = {}) {
           sendJson(res, 400, { error: 'Community item upload is not available.' });
           return;
         }
-        options.onCommunityItemsUpload()
+        readJsonBody(req)
+          .then((body) => options.onCommunityItemsUpload({ full: Boolean(body.full) }))
           .then((result) => sendJson(res, 200, { ok: true, ...result }))
           .catch((error) => sendJson(res, 500, { error: error.message }));
         return;
@@ -3301,6 +3363,27 @@ function createServer(store, options = {}) {
           return;
         }
         options.onCommunityItemsDownload()
+          .then((result) => sendJson(res, 200, { ok: true, ...result }))
+          .catch((error) => sendJson(res, 500, { error: error.message }));
+        return;
+      }
+      if (url.pathname === '/api/community-mobs/upload' && req.method === 'POST') {
+        if (typeof options.onCommunityMobsUpload !== 'function') {
+          sendJson(res, 400, { error: 'Community mob upload is not available.' });
+          return;
+        }
+        readJsonBody(req)
+          .then((body) => options.onCommunityMobsUpload({ full: Boolean(body.full) }))
+          .then((result) => sendJson(res, 200, { ok: true, ...result }))
+          .catch((error) => sendJson(res, 500, { error: error.message }));
+        return;
+      }
+      if (url.pathname === '/api/community-mobs/download' && req.method === 'POST') {
+        if (typeof options.onCommunityMobsDownload !== 'function') {
+          sendJson(res, 400, { error: 'Community mob download is not available.' });
+          return;
+        }
+        options.onCommunityMobsDownload()
           .then((result) => sendJson(res, 200, { ok: true, ...result }))
           .catch((error) => sendJson(res, 500, { error: error.message }));
         return;

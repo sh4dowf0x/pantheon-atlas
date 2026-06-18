@@ -149,6 +149,7 @@ const els = {
   lootLevelFilter: document.querySelector('#loot-level-filter'),
   lootSortFilter: document.querySelector('#loot-sort-filter'),
   lootList: document.querySelector('#loot-list'),
+  lootSyncItems: document.querySelector('#loot-sync-items'),
   lootDetailTitle: document.querySelector('#loot-detail-title'),
   lootDetailSubtitle: document.querySelector('#loot-detail-subtitle'),
   lootDetail: document.querySelector('#loot-detail'),
@@ -163,6 +164,7 @@ const els = {
   mobMinLevel: document.querySelector('#mob-min-level'),
   mobMaxLevel: document.querySelector('#mob-max-level'),
   mobList: document.querySelector('#mob-list'),
+  mobSyncMobs: document.querySelector('#mob-sync-mobs'),
   mobDetailTitle: document.querySelector('#mob-detail-title'),
   mobDetailSubtitle: document.querySelector('#mob-detail-subtitle'),
   mobDetail: document.querySelector('#mob-detail'),
@@ -221,6 +223,8 @@ const els = {
   communitySyncDownload: document.querySelector('#community-sync-download'),
   communitySyncUpload: document.querySelector('#community-sync-upload'),
   communitySyncMode: document.querySelector('#community-sync-mode'),
+  communitySyncDownloadMinutes: document.querySelector('#community-sync-download-minutes'),
+  communitySyncUploadMinutes: document.querySelector('#community-sync-upload-minutes'),
   communitySyncAccessKey: document.querySelector('#community-sync-access-key'),
   communitySyncSecretKey: document.querySelector('#community-sync-secret-key'),
   communitySyncSaveKeys: document.querySelector('#community-sync-save-keys'),
@@ -287,7 +291,9 @@ function escapeHtml(value) {
 
 function itemArtSrc(item) {
   const url = String(item?.artUrl || '').trim();
-  return url ? `/api/item-art?url=${encodeURIComponent(url)}` : '';
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url) && !url.startsWith('https://shalazam.info/')) return url;
+  return `/api/item-art?url=${encodeURIComponent(url)}`;
 }
 
 function itemIconMarkup(item, className = 'loot-row-icon') {
@@ -430,7 +436,7 @@ function renderRecentEventList(container, rows, emptyText) {
 
 async function fetchJson(url) {
   const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) throw new Error(await responseErrorMessage(res));
   return res.json();
 }
 
@@ -441,8 +447,20 @@ async function postJson(url, body) {
     body: JSON.stringify(body),
     cache: 'no-store'
   });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) throw new Error(await responseErrorMessage(res));
   return res.json();
+}
+
+async function responseErrorMessage(res) {
+  const fallback = `${res.status} ${res.statusText}`.trim();
+  const text = await res.text().catch(() => '');
+  if (!text) return fallback;
+  try {
+    const parsed = JSON.parse(text);
+    return parsed.error ? `${fallback}: ${compactText(parsed.error, 240)}` : fallback;
+  } catch {
+    return `${fallback}: ${compactText(text, 240)}`;
+  }
 }
 
 function displayParams(extra = {}) {
@@ -842,18 +860,35 @@ function renderNetworkRows(container, rows, mapper) {
   container.replaceChildren(...rows.map(mapper));
 }
 
+function compactText(value, maxLength = 240) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 1)}...`;
+}
+
 function renderCommunitySync(status = {}) {
   if (!els.communitySyncDetails) return;
   const enabled = Boolean(status.enabled);
   const downloadEnabled = status.downloadEnabled !== false;
   const uploadEnabled = Boolean(status.uploadEnabled);
-  els.communitySyncState.textContent = status.lastError || (enabled ? uploadEnabled ? 'Ready' : downloadEnabled ? 'Download only' : 'Enabled' : 'Disabled');
+  const downloadEveryMinutes = Math.max(1, Number(status.downloadEveryMinutes || 60) || 60);
+  const uploadEveryMinutes = Math.max(1, Number(status.uploadEveryMinutes || 30) || 30);
+  const lastError = compactText(status.lastError || '');
+  els.communitySyncState.textContent = lastError || (enabled ? uploadEnabled ? 'Ready' : downloadEnabled ? 'Download only' : 'Enabled' : 'Disabled');
   els.communitySyncEnabled.checked = enabled;
   if (els.communitySyncDownload) els.communitySyncDownload.checked = downloadEnabled;
   if (els.communitySyncDownload) els.communitySyncDownload.disabled = !enabled;
   els.communitySyncUpload.checked = uploadEnabled;
   els.communitySyncUpload.disabled = !enabled;
   els.communitySyncMode.disabled = !enabled;
+  if (els.communitySyncDownloadMinutes) {
+    els.communitySyncDownloadMinutes.value = String(downloadEveryMinutes);
+    els.communitySyncDownloadMinutes.disabled = !enabled || !downloadEnabled;
+  }
+  if (els.communitySyncUploadMinutes) {
+    els.communitySyncUploadMinutes.value = String(uploadEveryMinutes);
+    els.communitySyncUploadMinutes.disabled = !enabled || !uploadEnabled;
+  }
   if (els.communitySyncAccessKey) els.communitySyncAccessKey.disabled = !enabled || els.communitySyncMode.value !== 'r2';
   if (els.communitySyncSecretKey) els.communitySyncSecretKey.disabled = !enabled || els.communitySyncMode.value !== 'r2';
   if (els.communitySyncSaveKeys) els.communitySyncSaveKeys.disabled = !enabled || els.communitySyncMode.value !== 'r2';
@@ -871,13 +906,15 @@ function renderCommunitySync(status = {}) {
     uploadEndpoint: status.uploadEndpoint || null,
     publicBaseUrl: status.publicBaseUrl || null,
     manifestUrl: status.manifestUrl || null,
+    downloadEveryMinutes,
+    uploadEveryMinutes,
     lastCheckedAt: status.lastCheckedAt || null,
     lastDownloadedAt: status.lastDownloadedAt || null,
     lastUploadedAt: status.lastUploadedAt || null,
     lastDownloadedCount: status.lastDownloadedCount || 0,
     lastChangedCount: status.lastChangedCount || 0,
     lastUploadedCount: status.lastUploadedCount || 0,
-    lastError: status.lastError || null
+    lastError: lastError || null
   }, null, 2);
 }
 
@@ -2754,7 +2791,8 @@ function updateLootFilterOptions(data) {
   if (els.lootSlotFilter) els.lootSlotFilter.value = [...els.lootSlotFilter.options].some((option) => option.value === slotValue) ? slotValue : '';
 }
 
-function renderLootList(rows = []) {
+function renderLootList(rows = [], options = {}) {
+  const previousScrollTop = options.preserveScroll ? els.lootList.scrollTop : 0;
   if (!rows.length) {
     state.selectedLootItemId = null;
     els.lootList.innerHTML = '<div class="empty">No matching items.</div>';
@@ -2785,11 +2823,12 @@ function renderLootList(rows = []) {
     `;
     button.addEventListener('click', async () => {
       state.selectedLootItemId = row.itemId;
-      renderLootList(state.lootData?.rows || []);
+      renderLootList(state.lootData?.rows || [], { preserveScroll: true });
       await loadLootDetail(row.itemId);
     });
     return button;
   }));
+  if (options.preserveScroll) els.lootList.scrollTop = previousScrollTop;
 }
 
 function itemStatLines(item) {
@@ -3204,9 +3243,13 @@ async function refreshDiagnostics() {
   els.eventCount.textContent = formatNumber(totals.events);
   els.actorCount.textContent = formatNumber(totals.actors);
   els.lastEvent.textContent = formatTime(totals.lastEventAt);
-  renderCommunitySync(status.communityItems || {});
   renderNetworkRows(els.events, recent.events || [], (row) => rowCard(`#${row.id} ${row.eventType}`, `${formatTime(row.observedAt)} ${row.amount || ''}`, row.rawText));
   renderUnresolvedActors(unresolved.rows || []);
+}
+
+async function refreshSettings() {
+  const status = await fetchJson(`/api/status?${displayParams()}`);
+  renderCommunitySync(status.communityItems || {});
 }
 
 async function refresh() {
@@ -3227,7 +3270,8 @@ async function refresh() {
         else if (state.tab === 'loot') await refreshLoot();
         else if (state.tab === 'mobs') await refreshMobs();
         else if (state.tab === 'map') await refreshMap();
-        else await refreshDiagnostics();
+        else if (state.tab === 'diagnostics') await refreshDiagnostics();
+        else if (state.tab === 'settings') await refreshSettings();
       } catch (error) {
         els.status.textContent = `Dashboard error: ${error.message}`;
         els.status.classList.add('error');
@@ -3362,15 +3406,38 @@ async function updateCommunitySyncConfig(patch) {
   renderCommunitySync(result.status || {});
 }
 
+async function syncCommunityItemsNow({ refreshLootView = false } = {}) {
+  const download = await postJson('/api/community-items/download', {});
+  renderCommunitySync(download.status || {});
+  const upload = await postJson('/api/community-items/upload', { full: true });
+  renderCommunitySync(upload.status || {});
+  if (refreshLootView && state.tab === 'loot') await refreshLoot();
+  return { download, upload };
+}
+
+async function syncCommunityMobsNow({ refreshMobView = false } = {}) {
+  const download = await postJson('/api/community-mobs/download', {});
+  const upload = await postJson('/api/community-mobs/upload', { full: true });
+  if (refreshMobView && state.tab === 'mobs') await refreshMobs();
+  return { download, upload };
+}
+
+function communitySyncConfigPatch(extra = {}) {
+  return {
+    enabled: els.communitySyncEnabled.checked,
+    downloadEnabled: els.communitySyncDownload ? els.communitySyncDownload.checked : true,
+    uploadEnabled: els.communitySyncUpload.checked,
+    uploadMode: els.communitySyncMode.value,
+    downloadEveryMinutes: Number(els.communitySyncDownloadMinutes?.value || 60) || 60,
+    uploadEveryMinutes: Number(els.communitySyncUploadMinutes?.value || 30) || 30,
+    ...extra
+  };
+}
+
 if (els.communitySyncEnabled) {
   els.communitySyncEnabled.addEventListener('change', async () => {
     try {
-      await updateCommunitySyncConfig({
-        enabled: els.communitySyncEnabled.checked,
-        downloadEnabled: els.communitySyncDownload ? els.communitySyncDownload.checked : true,
-        uploadEnabled: els.communitySyncUpload.checked,
-        uploadMode: els.communitySyncMode.value
-      });
+      await updateCommunitySyncConfig(communitySyncConfigPatch());
     } catch (error) {
       els.status.textContent = `Community sync error: ${error.message}`;
       els.status.classList.add('error');
@@ -3381,12 +3448,7 @@ if (els.communitySyncEnabled) {
 if (els.communitySyncDownload) {
   els.communitySyncDownload.addEventListener('change', async () => {
     try {
-      await updateCommunitySyncConfig({
-        enabled: els.communitySyncEnabled.checked,
-        downloadEnabled: els.communitySyncDownload.checked,
-        uploadEnabled: els.communitySyncUpload.checked,
-        uploadMode: els.communitySyncMode.value
-      });
+      await updateCommunitySyncConfig(communitySyncConfigPatch());
     } catch (error) {
       els.status.textContent = `Community sync error: ${error.message}`;
       els.status.classList.add('error');
@@ -3397,12 +3459,7 @@ if (els.communitySyncDownload) {
 if (els.communitySyncUpload) {
   els.communitySyncUpload.addEventListener('change', async () => {
     try {
-      await updateCommunitySyncConfig({
-        enabled: els.communitySyncEnabled.checked,
-        downloadEnabled: els.communitySyncDownload ? els.communitySyncDownload.checked : true,
-        uploadEnabled: els.communitySyncUpload.checked,
-        uploadMode: els.communitySyncMode.value
-      });
+      await updateCommunitySyncConfig(communitySyncConfigPatch());
     } catch (error) {
       els.status.textContent = `Community sync error: ${error.message}`;
       els.status.classList.add('error');
@@ -3413,12 +3470,18 @@ if (els.communitySyncUpload) {
 if (els.communitySyncMode) {
   els.communitySyncMode.addEventListener('change', async () => {
     try {
-      await updateCommunitySyncConfig({
-        enabled: els.communitySyncEnabled.checked,
-        downloadEnabled: els.communitySyncDownload ? els.communitySyncDownload.checked : true,
-        uploadEnabled: els.communitySyncUpload.checked,
-        uploadMode: els.communitySyncMode.value
-      });
+      await updateCommunitySyncConfig(communitySyncConfigPatch());
+    } catch (error) {
+      els.status.textContent = `Community sync error: ${error.message}`;
+      els.status.classList.add('error');
+    }
+  });
+}
+
+for (const input of [els.communitySyncDownloadMinutes, els.communitySyncUploadMinutes].filter(Boolean)) {
+  input.addEventListener('change', async () => {
+    try {
+      await updateCommunitySyncConfig(communitySyncConfigPatch());
     } catch (error) {
       els.status.textContent = `Community sync error: ${error.message}`;
       els.status.classList.add('error');
@@ -3432,13 +3495,9 @@ if (els.communitySyncSaveKeys) {
       const accessKeyId = els.communitySyncAccessKey.value.trim();
       const secretAccessKey = els.communitySyncSecretKey.value.trim();
       if (!accessKeyId || !secretAccessKey) throw new Error('Both R2 key fields are required.');
-      await updateCommunitySyncConfig({
-        enabled: els.communitySyncEnabled.checked,
-        downloadEnabled: els.communitySyncDownload ? els.communitySyncDownload.checked : true,
-        uploadEnabled: els.communitySyncUpload.checked,
-        uploadMode: els.communitySyncMode.value,
+      await updateCommunitySyncConfig(communitySyncConfigPatch({
         r2: { accessKeyId, secretAccessKey }
-      });
+      }));
       els.communitySyncAccessKey.value = '';
       els.communitySyncSecretKey.value = '';
       els.status.textContent = 'R2 keys saved locally.';
@@ -3454,9 +3513,7 @@ if (els.communitySyncCheck) {
   els.communitySyncCheck.addEventListener('click', async () => {
     try {
       els.communitySyncCheck.disabled = true;
-      const res = await fetch('/api/community-items/download', { method: 'POST', cache: 'no-store' });
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-      const result = await res.json();
+      const result = await postJson('/api/community-items/download', {});
       renderCommunitySync(result.status || {});
       els.status.textContent = `Community sync imported ${formatNumber(result.imported || 0)} item updates.`;
       els.status.classList.remove('error');
@@ -3474,16 +3531,54 @@ if (els.communitySyncNow) {
   els.communitySyncNow.addEventListener('click', async () => {
     try {
       els.communitySyncNow.disabled = true;
-      const res = await fetch('/api/community-items/upload', { method: 'POST', cache: 'no-store' });
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-      const result = await res.json();
+      const result = await postJson('/api/community-items/upload', { full: true });
       renderCommunitySync(result.status || {});
-      els.status.textContent = `Community sync uploaded ${formatNumber(result.uploaded || 0)} item changes.`;
+      els.status.textContent = `Community sync uploaded ${formatNumber(result.uploaded || 0)} local items.`;
     } catch (error) {
       els.status.textContent = `Community sync error: ${error.message}`;
       els.status.classList.add('error');
     } finally {
       els.communitySyncNow.disabled = !els.communitySyncEnabled.checked || !els.communitySyncUpload.checked;
+    }
+  });
+}
+
+if (els.lootSyncItems) {
+  els.lootSyncItems.addEventListener('click', async () => {
+    try {
+      els.lootSyncItems.disabled = true;
+      els.status.textContent = 'Syncing item database...';
+      els.status.classList.remove('error');
+      const result = await syncCommunityItemsNow({ refreshLootView: true });
+      const imported = result.download.imported || 0;
+      const uploaded = result.upload.uploaded || 0;
+      els.status.textContent = `Item sync complete: imported ${formatNumber(imported)}, uploaded ${formatNumber(uploaded)}.`;
+      els.status.classList.remove('error');
+    } catch (error) {
+      els.status.textContent = `Item sync error: ${error.message}`;
+      els.status.classList.add('error');
+    } finally {
+      els.lootSyncItems.disabled = false;
+    }
+  });
+}
+
+if (els.mobSyncMobs) {
+  els.mobSyncMobs.addEventListener('click', async () => {
+    try {
+      els.mobSyncMobs.disabled = true;
+      els.status.textContent = 'Syncing mob database...';
+      els.status.classList.remove('error');
+      const result = await syncCommunityMobsNow({ refreshMobView: true });
+      const imported = result.download.imported || 0;
+      const uploaded = result.upload.uploaded || 0;
+      els.status.textContent = `Mob sync complete: imported ${formatNumber(imported)}, uploaded ${formatNumber(uploaded)}.`;
+      els.status.classList.remove('error');
+    } catch (error) {
+      els.status.textContent = `Mob sync error: ${error.message}`;
+      els.status.classList.add('error');
+    } finally {
+      els.mobSyncMobs.disabled = false;
     }
   });
 }

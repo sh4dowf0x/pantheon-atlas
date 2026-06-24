@@ -99,14 +99,39 @@ function releaseAssetForPlatform(release) {
     || null;
 }
 
+async function latestUpdateInfo() {
+  if (process.env.PANTHEON_ATLAS_DISABLE_UPDATE_CHECK === '1') {
+    return {
+      checked: false,
+      available: false,
+      currentVersion: packageJson.version,
+      error: 'Update checks are disabled.'
+    };
+  }
+  const release = await fetchJson(UPDATE_API_URL);
+  const latestVersion = String(release.tag_name || '').replace(/^v/i, '');
+  const asset = releaseAssetForPlatform(release);
+  const releaseUrl = release.html_url || `https://github.com/${UPDATE_REPO}/releases/latest`;
+  const downloadUrl = asset?.browser_download_url || releaseUrl;
+  return {
+    checked: true,
+    available: Boolean(latestVersion && compareVersions(latestVersion, packageJson.version) > 0),
+    currentVersion: packageJson.version,
+    latestVersion: latestVersion || null,
+    releaseUrl,
+    downloadUrl,
+    assetName: asset?.name || null,
+    publishedAt: release.published_at || null
+  };
+}
+
 async function checkForUpdates({ manual = false } = {}) {
   if (updateCheckInFlight || process.env.PANTHEON_ATLAS_DISABLE_UPDATE_CHECK === '1') return null;
   if (process.env.PANTHEON_ATLAS_SMOKE_TEST === '1' && !manual) return null;
   updateCheckInFlight = true;
   try {
-    const release = await fetchJson(UPDATE_API_URL);
-    const latestVersion = String(release.tag_name || '').replace(/^v/i, '');
-    if (!latestVersion || compareVersions(latestVersion, packageJson.version) <= 0) {
+    const info = await latestUpdateInfo();
+    if (!info.available) {
       if (manual) {
         await dialog.showMessageBox(mainWindow, {
           type: 'info',
@@ -118,20 +143,17 @@ async function checkForUpdates({ manual = false } = {}) {
       return null;
     }
 
-    const asset = releaseAssetForPlatform(release);
-    const releaseUrl = release.html_url || `https://github.com/${UPDATE_REPO}/releases/latest`;
-    const downloadUrl = asset?.browser_download_url || releaseUrl;
     const result = await dialog.showMessageBox(mainWindow, {
       type: 'info',
       title: 'Pantheon Atlas Update Available',
-      message: `Pantheon Atlas ${latestVersion} is available.`,
+      message: `Pantheon Atlas ${info.latestVersion} is available.`,
       detail: `You are running ${packageJson.version}. Download the latest build from GitHub, then close Atlas and run the new installer or portable EXE.`,
       buttons: ['Download', 'Later'],
       defaultId: 0,
       cancelId: 1
     });
-    if (result.response === 0) await shell.openExternal(downloadUrl);
-    return { latestVersion, downloadUrl };
+    if (result.response === 0) await shell.openExternal(info.downloadUrl);
+    return info;
   } catch (error) {
     console.error(`Update check failed: ${error.message}`);
     if (manual) {
@@ -246,8 +268,8 @@ function pickCharacter(configPath) {
   const configured = sanitizeCharacterName(config.pantheon?.localPlayerName);
   return new Promise((resolve) => {
     const picker = new BrowserWindow({
-      width: 560,
-      height: Math.min(720, 210 + choices.length * 76),
+      width: 620,
+      height: Math.min(820, 300 + choices.length * 76),
       resizable: false,
       title: 'Choose Character',
       backgroundColor: '#101418',
@@ -258,15 +280,49 @@ function pickCharacter(configPath) {
     });
 
     let settled = false;
+    let latestDownloadUrl = null;
+    const handleCharacterSelected = (_event, character) => settle(character);
+    const handleUpdateCheck = async () => {
+      if (process.env.PANTHEON_ATLAS_SMOKE_TEST === '1') {
+        return {
+          checked: false,
+          available: false,
+          currentVersion: packageJson.version,
+          error: 'Skipped during smoke test.'
+        };
+      }
+      try {
+        const info = await latestUpdateInfo();
+        latestDownloadUrl = info.downloadUrl || null;
+        return info;
+      } catch (error) {
+        console.error(`Update check failed: ${error.message}`);
+        return {
+          checked: false,
+          available: false,
+          currentVersion: packageJson.version,
+          error: error.message
+        };
+      }
+    };
+    const handleOpenUpdate = async () => {
+      const url = latestDownloadUrl || `https://github.com/${UPDATE_REPO}/releases/latest`;
+      await shell.openExternal(url);
+      return { ok: true };
+    };
     const settle = (character) => {
       if (settled) return;
       settled = true;
-      ipcMain.removeAllListeners('atlas-character-selected');
+      ipcMain.removeListener('atlas-character-selected', handleCharacterSelected);
+      ipcMain.removeHandler('atlas-update-check');
+      ipcMain.removeHandler('atlas-open-update');
       if (!picker.isDestroyed()) picker.close();
       resolve(sanitizeCharacterName(character) || configured || choices[0]?.name || null);
     };
 
-    ipcMain.once('atlas-character-selected', (_event, character) => settle(character));
+    ipcMain.on('atlas-character-selected', handleCharacterSelected);
+    ipcMain.handle('atlas-update-check', handleUpdateCheck);
+    ipcMain.handle('atlas-open-update', handleOpenUpdate);
     picker.on('closed', () => settle(configured || choices[0]?.name || null));
 
     const rows = choices.map((choice, index) => {
@@ -308,6 +364,49 @@ function pickCharacter(configPath) {
               margin: 0 0 18px;
               color: #9fb0bd;
               line-height: 1.4;
+            }
+            .top {
+              display: grid;
+              grid-template-columns: 1fr auto;
+              gap: 14px;
+              align-items: start;
+            }
+            .update {
+              min-width: 210px;
+              padding: 12px;
+              border: 1px solid #2b3a42;
+              border-radius: 8px;
+              background: #151d23;
+            }
+            .update-title {
+              display: block;
+              margin-bottom: 5px;
+              color: #eef3f7;
+              font-size: 13px;
+              font-weight: 700;
+            }
+            .update-status {
+              min-height: 34px;
+              margin-bottom: 10px;
+              color: #9fb0bd;
+              font-size: 12px;
+              line-height: 1.35;
+            }
+            .update button {
+              width: 100%;
+              padding: 9px 10px;
+              border: 1px solid #426477;
+              border-radius: 7px;
+              background: #24475a;
+              color: #dff5ff;
+              font-weight: 700;
+              cursor: pointer;
+            }
+            .update button:disabled {
+              border-color: #2b3a42;
+              background: #182128;
+              color: #6f808a;
+              cursor: default;
             }
             .list {
               display: grid;
@@ -351,15 +450,45 @@ function pickCharacter(configPath) {
           </style>
         </head>
         <body>
-          <h1>Choose Character</h1>
-          <p>Pantheon Atlas will tail the active combat and entity logs for this character.</p>
+          <div class="top">
+            <div>
+              <h1>Choose Character</h1>
+              <p>Pantheon Atlas will tail the active combat and entity logs for this character.</p>
+            </div>
+            <section class="update" aria-label="Atlas update">
+              <span class="update-title">Atlas Update</span>
+              <div id="update-status" class="update-status">Checking GitHub...</div>
+              <button id="update-button" type="button" disabled>Update Atlas</button>
+            </section>
+          </div>
           <div class="list">${rows}</div>
           <script>
             const { ipcRenderer } = require('electron');
+            const updateStatus = document.querySelector('#update-status');
+            const updateButton = document.querySelector('#update-button');
             document.querySelectorAll('.choice').forEach((button) => {
               button.addEventListener('click', () => {
                 ipcRenderer.send('atlas-character-selected', button.dataset.character);
               });
+            });
+            updateButton.addEventListener('click', async () => {
+              updateButton.disabled = true;
+              updateStatus.textContent = 'Opening GitHub...';
+              await ipcRenderer.invoke('atlas-open-update');
+              updateStatus.textContent = 'Download opened in your browser.';
+              updateButton.disabled = false;
+            });
+            ipcRenderer.invoke('atlas-update-check').then((info) => {
+              if (info.available) {
+                updateStatus.textContent = 'Version ' + info.latestVersion + ' is available. Current: ' + info.currentVersion + '.';
+                updateButton.disabled = false;
+                return;
+              }
+              updateStatus.textContent = info.error || ('Up to date: ' + info.currentVersion + '.');
+              updateButton.disabled = true;
+            }).catch((error) => {
+              updateStatus.textContent = error.message || 'Could not check for updates.';
+              updateButton.disabled = true;
             });
           </script>
         </body>
@@ -389,9 +518,6 @@ function createWindow(dashboardUrl) {
   });
 
   mainWindow.loadURL(dashboardUrl);
-  mainWindow.webContents.once('did-finish-load', () => {
-    setTimeout(() => checkForUpdates().catch(() => {}), 2500);
-  });
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -442,14 +568,16 @@ async function startAtlas() {
   startingAtlas = false;
 }
 
-Menu.setApplicationMenu(Menu.buildFromTemplate([{
-  label: 'Pantheon Atlas',
-  submenu: [
-    { label: 'Check for Updates', click: () => checkForUpdates({ manual: true }).catch(() => {}) },
-    { type: 'separator' },
-    { role: 'quit' }
-  ]
-}]));
+if (Menu?.setApplicationMenu && Menu?.buildFromTemplate) {
+  Menu.setApplicationMenu(Menu.buildFromTemplate([{
+    label: 'Pantheon Atlas',
+    submenu: [
+      { label: 'Check for Updates', click: () => checkForUpdates({ manual: true }).catch(() => {}) },
+      { type: 'separator' },
+      { role: 'quit' }
+    ]
+  }]));
+}
 
 app.whenReady()
   .then(startAtlas)

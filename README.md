@@ -98,7 +98,7 @@ Read access uses the public R2 URL and does not require any credentials:
 
 Atlas reads `items-manifest.json`, downloads any contribution objects it has not seen before, imports those items into the local item database, and marks them as known so they are not uploaded back as fresh local discoveries.
 
-Configure `communityItems` in `config.json` for a Worker upload endpoint:
+Configure `communityItems` and `communityMobs` in `config.json` for a Worker upload endpoint:
 
 ```json
 {
@@ -107,11 +107,23 @@ Configure `communityItems` in `config.json` for a Worker upload endpoint:
     "uploadEnabled": true,
     "uploadEndpoint": "https://your-worker.example.com/items",
     "publicBaseUrl": "https://pub-bb6b866e2c73493f83b42111abb2e1c9.r2.dev"
+  },
+  "communityMobs": {
+    "enabled": true,
+    "uploadEnabled": true,
+    "uploadMode": "worker",
+    "uploadEndpoint": "https://your-worker.example.com/mobs",
+    "publicBaseUrl": "https://pub-bb6b866e2c73493f83b42111abb2e1c9.r2.dev",
+    "manifestUrl": "https://pub-bb6b866e2c73493f83b42111abb2e1c9.r2.dev/mobs-manifest.json"
   }
 }
 ```
 
-Do not put R2 write credentials in the Electron app. Use a small Cloudflare Worker or presigned upload endpoint to receive compressed item JSON and write to R2. A starter Worker is included in `workers/item-upload-worker.js`; copy `workers/wrangler.toml.example` to `workers/wrangler.toml`, deploy it with an `ITEM_BUCKET` R2 binding, then set `communityItems.uploadEndpoint` to the Worker URL. The Worker automatically updates `items-manifest.json` after each accepted upload.
+Do not put R2 write credentials in the Electron app. Use the Cloudflare Worker in `workers/item-upload-worker.js` to receive Atlas uploads and write to R2 through an `ITEM_BUCKET` binding. Copy `workers/wrangler.toml.example` to `workers/wrangler.toml`, set `PUBLIC_BASE_URL` to the public R2 URL, deploy it, then point Atlas at the Worker. The Worker accepts:
+
+- `POST /items` for item contribution payloads and `items-manifest.json`
+- `POST /mobs` for mob contribution payloads and `mobs-manifest.json`
+- `POST /icons` for item icon uploads, returning a public R2 URL
 
 The Worker does not need the R2 API key or secret. Cloudflare grants write access through the R2 binding. If you want a lightweight gate for friend builds, set a Worker secret:
 
@@ -122,6 +134,8 @@ wrangler deploy
 ```
 
 Then set the same token locally as `communityItems.uploadToken`. This token is not as strong as keeping credentials server-side because any client token can be extracted, but it only permits sanitized Worker uploads instead of full R2 account access.
+
+For guild builds, hard-code the deployed Worker base URL in `COMMUNITY_WORKER_BASE_URL` in `src/config.js` before packaging. Existing user configs with an empty Worker endpoint will automatically inherit the baked-in `/items` and `/mobs` endpoints.
 
 For a private/local build, Atlas can also write directly to R2 using S3-compatible credentials stored in environment variables:
 

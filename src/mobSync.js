@@ -6,6 +6,7 @@ const { normalizeMobName } = require('./namedMobs');
 const {
   fetchCommunityManifest,
   fetchJsonMaybeGzip,
+  appendSyncLog,
   hashObject,
   loadState,
   normalizeManifestRows,
@@ -20,9 +21,47 @@ function mobSyncStatePath(config) {
   return config.statePath || path.resolve(process.cwd(), 'data', 'community-mob-sync.json');
 }
 
+function validMobLocation(value = {}) {
+  if (!value || typeof value !== 'object') return false;
+  const x = Number(value.x);
+  const y = Number(value.y);
+  const z = Number(value.z);
+  if (![x, y, z].every(Number.isFinite)) return false;
+  return Math.abs(x) > 0.001 || Math.abs(y) > 0.001 || Math.abs(z) > 0.001;
+}
+
+function normalizeMobLocation(value = {}) {
+  if (!validMobLocation(value)) return null;
+  return {
+    x: Number(value.x),
+    y: Number(value.y),
+    z: Number(value.z),
+    observedAt: value.observedAt || null,
+    source: value.source || null
+  };
+}
+
+function normalizeMobLocationHistory(row = {}) {
+  const rows = Array.isArray(row.locationHistory) ? [...row.locationHistory] : [];
+  if (row.lastLocation) rows.unshift(row.lastLocation);
+  const seen = new Set();
+  return rows
+    .map(normalizeMobLocation)
+    .filter(Boolean)
+    .filter((location) => {
+      const key = `${Math.round(location.x)}|${Math.round(location.y)}|${Math.round(location.z)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((left, right) => Date.parse(right.observedAt || 0) - Date.parse(left.observedAt || 0))
+    .slice(0, 12);
+}
+
 function normalizeMobForSync(row = {}) {
   const key = normalizeMobName(row.name);
   if (!key) return null;
+  const locationHistory = normalizeMobLocationHistory(row);
   return {
     key,
     name: row.name,
@@ -57,7 +96,8 @@ function normalizeMobForSync(row = {}) {
     damageTaken: Number(row.damageTaken || 0),
     combatEvents: Number(row.combatEvents || 0),
     killCount: Number(row.killCount || 0),
-    lastLocation: row.lastLocation || null
+    lastLocation: locationHistory[0] || null,
+    locationHistory
   };
 }
 
@@ -192,6 +232,37 @@ async function putMobPayloadToR2(config, payload) {
   return { response, key };
 }
 
+async function postMobPayloadToWorker(config, payload) {
+  const endpoint = config.uploadEndpoint || '';
+  const body = zlib.gzipSync(Buffer.from(JSON.stringify(payload), 'utf8'));
+  const payloadHash = sha256(body);
+  const headers = {
+    'Content-Type': 'application/json',
+    'Content-Encoding': 'gzip',
+    'X-Atlas-Format': payload.format || 'pantheon-atlas-mobs-v1',
+    'X-Atlas-Generated-At': payload.generatedAt || new Date().toISOString(),
+    'X-Atlas-Install-Id': payload.installId || 'anonymous',
+    'X-Atlas-Payload-SHA256': payloadHash
+  };
+  if (config.uploadToken) headers.Authorization = `Bearer ${config.uploadToken}`;
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers,
+    body
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(`Community mob upload failed: ${response.status}${text ? ` ${text.replace(/\s+/g, ' ').slice(0, 300)}` : ''}`);
+  }
+  const text = await response.text().catch(() => '');
+  if (!text) return { response };
+  try {
+    return { response, ...JSON.parse(text) };
+  } catch {
+    return { response };
+  }
+}
+
 class CommunityMobSync {
   constructor(config, store, options = {}) {
     this.config = config || {};
@@ -206,7 +277,8 @@ class CommunityMobSync {
       enabled: Boolean(this.config.enabled),
       downloadEnabled: this.config.downloadEnabled !== false,
       uploadEnabled: Boolean(this.config.uploadEnabled),
-      uploadMode: this.config.uploadMode || 'r2',
+      uploadMode: this.config.uploadMode || 'worker',
+      uploadEndpoint: this.config.uploadEndpoint || null,
       bucket: this.config.r2?.bucket || null,
       r2Endpoint: this.config.r2?.endpoint || null,
       publicBaseUrl: this.config.publicBaseUrl || null,
@@ -254,6 +326,7 @@ class CommunityMobSync {
       state.mobHashes = state.mobHashes || {};
       const manifest = await fetchCommunityManifest(this.config.manifestUrl);
       const rows = normalizeManifestRows(manifest);
+      appendSyncLog(this.config, 'mobs', 'download_start', { manifestUrl: this.config.manifestUrl, manifestRows: rows.length });
       let downloaded = 0;
       let imported = 0;
       for (const row of rows) {
@@ -278,9 +351,11 @@ class CommunityMobSync {
       this.status.lastDownloadedAt = state.lastDownloadedAt;
       this.status.lastDownloadedCount = imported;
       this.status.lastError = null;
+      appendSyncLog(this.config, 'mobs', 'download_complete', { downloaded, imported });
       return { downloaded, imported };
     } catch (error) {
       this.status.lastError = error.message;
+      appendSyncLog(this.config, 'mobs', 'download_error', { error: error.message });
       throw error;
     } finally {
       this.downloadBusy = false;
@@ -289,8 +364,14 @@ class CommunityMobSync {
 
   async uploadChangedMobs(options = {}) {
     if (this.uploadBusy || !this.config.uploadEnabled) return { uploaded: 0, changed: 0 };
-    if (!this.config.r2?.endpoint || !this.config.r2?.bucket) {
+    if ((this.config.uploadMode || 'worker') === 'r2' && (!this.config.r2?.endpoint || !this.config.r2?.bucket)) {
       this.status.lastError = 'R2 mob upload endpoint or bucket is not configured.';
+      appendSyncLog(this.config, 'mobs', 'upload_blocked', { mode: 'r2', error: this.status.lastError });
+      return { uploaded: 0, changed: 0 };
+    }
+    if ((this.config.uploadMode || 'worker') !== 'r2' && !this.config.uploadEndpoint) {
+      this.status.lastError = 'Community mob upload endpoint is not configured.';
+      appendSyncLog(this.config, 'mobs', 'upload_blocked', { mode: this.config.uploadMode || 'worker', error: this.status.lastError });
       return { uploaded: 0, changed: 0 };
     }
     this.uploadBusy = true;
@@ -303,9 +384,17 @@ class CommunityMobSync {
       const batchSize = options.full ? maxMobs : Math.max(1, Math.min(500, Number(this.config.batchSize || 100)));
       const batch = changes.slice(0, batchSize);
       this.status.lastChangedCount = changes.length;
+      appendSyncLog(this.config, 'mobs', 'upload_start', {
+        mode: this.config.uploadMode || 'worker',
+        endpoint: (this.config.uploadMode || 'worker') === 'r2' ? this.config.r2?.endpoint || null : this.config.uploadEndpoint || null,
+        changed: changes.length,
+        batch: batch.length,
+        full: Boolean(options.full)
+      });
       if (!batch.length) {
         this.status.lastUploadedCount = 0;
         this.status.lastError = null;
+        appendSyncLog(this.config, 'mobs', 'upload_complete', { uploaded: 0, changed: 0 });
         return { uploaded: 0, changed: 0 };
       }
       state.installId = state.installId || this.config.installId || crypto.randomUUID();
@@ -313,7 +402,9 @@ class CommunityMobSync {
         atlasVersion: this.options.atlasVersion,
         installId: state.installId
       });
-      const uploadResult = await putMobPayloadToR2(this.config.r2, payload);
+      const uploadResult = (this.config.uploadMode || 'worker') === 'r2'
+        ? await putMobPayloadToR2(this.config.r2, payload)
+        : await postMobPayloadToWorker(this.config, payload);
       state.mobHashes = state.mobHashes || {};
       for (const entry of batch) state.mobHashes[entry.mob.key] = entry.hash;
       state.lastUploadedAt = new Date().toISOString();
@@ -322,9 +413,11 @@ class CommunityMobSync {
       this.status.lastUploadedAt = state.lastUploadedAt;
       this.status.lastUploadedCount = batch.length;
       this.status.lastError = null;
+      appendSyncLog(this.config, 'mobs', 'upload_complete', { uploaded: batch.length, changed: changes.length, key: uploadResult?.key || null });
       return { uploaded: batch.length, changed: changes.length };
     } catch (error) {
       this.status.lastError = error.message;
+      appendSyncLog(this.config, 'mobs', 'upload_error', { error: error.message });
       throw error;
     } finally {
       this.uploadBusy = false;

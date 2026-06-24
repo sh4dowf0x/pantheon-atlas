@@ -881,6 +881,67 @@ function getLootDropSources(db, itemId) {
     .sort((left, right) => right.count - left.count || Date.parse(right.lastSeen) - Date.parse(left.lastSeen) || left.name.localeCompare(right.name));
 }
 
+function normalizeCommunityDropSources(rows = []) {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((source) => {
+      if (!source || typeof source !== 'object') return null;
+      const name = String(source.name || '').trim();
+      if (!name || /^player$/i.test(name)) return null;
+      return {
+        name,
+        count: Number(source.count || 0),
+        firstSeen: source.firstSeen || source.lastSeen || null,
+        lastSeen: source.lastSeen || source.firstSeen || null,
+        methods: Array.isArray(source.methods) ? source.methods.filter(Boolean) : source.method ? [source.method] : [],
+        confidences: Array.isArray(source.confidences) ? source.confidences.filter(Boolean) : source.confidence ? [source.confidence] : [],
+        level: source.level ?? null,
+        entityType: source.entityType || null,
+        x: source.x ?? null,
+        y: source.y ?? null,
+        z: source.z ?? null,
+        mapKey: source.mapKey || null,
+        zoneName: source.zoneName || null
+      };
+    })
+    .filter(Boolean);
+}
+
+function mergeLootDropSources(...lists) {
+  const bySource = new Map();
+  for (const source of lists.flat()) {
+    if (!source?.name) continue;
+    const key = String(source.name).toLowerCase();
+    const current = bySource.get(key);
+    if (!current) {
+      bySource.set(key, {
+        ...source,
+        count: Number(source.count || 0),
+        methods: new Set(Array.isArray(source.methods) ? source.methods : []),
+        confidences: new Set(Array.isArray(source.confidences) ? source.confidences : [])
+      });
+      continue;
+    }
+    current.count = Math.max(Number(current.count || 0), Number(source.count || 0));
+    if (source.firstSeen && (!current.firstSeen || source.firstSeen < current.firstSeen)) current.firstSeen = source.firstSeen;
+    if (source.lastSeen && (!current.lastSeen || source.lastSeen > current.lastSeen)) current.lastSeen = source.lastSeen;
+    for (const method of Array.isArray(source.methods) ? source.methods : []) current.methods.add(method);
+    for (const confidence of Array.isArray(source.confidences) ? source.confidences : []) current.confidences.add(confidence);
+    for (const field of ['level', 'entityType', 'x', 'y', 'z', 'mapKey', 'zoneName']) {
+      if ((current[field] === null || current[field] === undefined || current[field] === '') && source[field] !== null && source[field] !== undefined && source[field] !== '') {
+        current[field] = source[field];
+      }
+    }
+  }
+  return [...bySource.values()]
+    .map((source) => ({
+      ...source,
+      methods: [...source.methods],
+      confidences: [...source.confidences]
+    }))
+    .sort((left, right) => right.count - left.count || Date.parse(right.lastSeen || 0) - Date.parse(left.lastSeen || 0) || left.name.localeCompare(right.name));
+}
+
 function statValueFromStats(stats = {}, statName = '') {
   const wanted = String(statName || '').toLowerCase();
   if (!wanted) return null;
@@ -1131,7 +1192,10 @@ function getLootItemDetail(db, itemId) {
     rawJson: undefined,
     quantity: event.quantity === null || event.quantity === undefined ? null : Number(event.quantity)
   }));
-  item.dropSources = getLootDropSources(db, itemId).slice(0, 40);
+  item.dropSources = mergeLootDropSources(
+    getLootDropSources(db, itemId),
+    normalizeCommunityDropSources(item.template?.communitySources)
+  ).slice(0, 40);
   return item;
 }
 
@@ -1143,6 +1207,43 @@ function cleanMobName(name) {
   const value = String(name || '').trim();
   if (!value || value.toLowerCase().startsWith('unknown entity')) return null;
   return value;
+}
+
+function validMobLocation(value = {}) {
+  if (!value || typeof value !== 'object') return false;
+  const x = Number(value.x);
+  const y = Number(value.y);
+  const z = Number(value.z);
+  if (![x, y, z].every(Number.isFinite)) return false;
+  return Math.abs(x) > 0.001 || Math.abs(y) > 0.001 || Math.abs(z) > 0.001;
+}
+
+function rememberMobLocation(mob, row = {}) {
+  const location = { x: row.x, y: row.y, z: row.z };
+  if (!validMobLocation(location)) return;
+  if (row.observedAt >= (mob.locationObservedAt || '')) {
+    mob.lastX = Number(row.x);
+    mob.lastY = Number(row.y);
+    mob.lastZ = Number(row.z);
+    mob.locationObservedAt = row.observedAt;
+  }
+  mob.locationHistory = mob.locationHistory || [];
+  const duplicate = mob.locationHistory.some((entry) => (
+    Math.abs(Number(entry.x) - Number(row.x)) < 1
+    && Math.abs(Number(entry.y) - Number(row.y)) < 1
+    && Math.abs(Number(entry.z) - Number(row.z)) < 1
+  ));
+  if (!duplicate) {
+    mob.locationHistory.push({
+      x: Number(row.x),
+      y: Number(row.y),
+      z: Number(row.z),
+      observedAt: row.observedAt || null,
+      source: row.source || 'local'
+    });
+  }
+  mob.locationHistory.sort((left, right) => Date.parse(right.observedAt || 0) - Date.parse(left.observedAt || 0));
+  mob.locationHistory = mob.locationHistory.slice(0, 12);
 }
 
 function buildMobIndex(db) {
@@ -1167,6 +1268,7 @@ function buildMobIndex(db) {
         lastX: null,
         lastY: null,
         lastZ: null,
+        locationHistory: [],
         entityIds: new Set(),
         abilities: new Map(),
         drops: new Map(),
@@ -1207,12 +1309,7 @@ function buildMobIndex(db) {
       mob.levelMax = mob.levelMax === null ? level : Math.max(mob.levelMax, level);
     }
     if (row.entityId) mob.entityIds.add(row.entityId);
-    if (row.observedAt >= (mob.locationObservedAt || '')) {
-      mob.lastX = Number.isFinite(Number(row.x)) ? Number(row.x) : mob.lastX;
-      mob.lastY = Number.isFinite(Number(row.y)) ? Number(row.y) : mob.lastY;
-      mob.lastZ = Number.isFinite(Number(row.z)) ? Number(row.z) : mob.lastZ;
-      mob.locationObservedAt = row.observedAt;
-    }
+    rememberMobLocation(mob, row);
     const metadata = scannerMetadataFromRawText(row.rawText);
     if (metadata?.className) mob.className = metadata.className;
     if (metadata?.race) mob.race = metadata.race;
@@ -1336,6 +1433,7 @@ function buildMobIndex(db) {
     const named = namedByAlias.get(mob.key);
     if (!named) continue;
     mob.named = true;
+    mob.namedCatalog = true;
     mob.namedName = named.name || mob.name;
     mob.namedLocation = named.location || null;
     mob.namedZone = named.zone || null;
@@ -1358,8 +1456,10 @@ function buildMobIndex(db) {
     if (payload.named) {
       mob.named = true;
       mob.namedName = mob.namedName || payload.namedName || payload.name;
-      mob.namedLocation = mob.namedLocation || payload.location || null;
-      mob.namedZone = mob.namedZone || payload.zoneName || null;
+      if (!mob.namedCatalog) {
+        mob.namedLocation = mob.namedLocation || payload.location || null;
+        mob.namedZone = mob.namedZone || payload.zoneName || null;
+      }
       mob.namedSourceUrl = mob.namedSourceUrl || payload.namedSourceUrl || null;
     }
     if (!mob.className && payload.className) mob.className = payload.className;
@@ -1374,11 +1474,11 @@ function buildMobIndex(db) {
     mob.combatEvents = Math.max(mob.combatEvents, Number(payload.combatEvents || 0));
     mob.damageDone = Math.max(mob.damageDone, Number(payload.damageDone || 0));
     mob.damageTaken = Math.max(mob.damageTaken, Number(payload.damageTaken || 0));
-    if (!mob.locationObservedAt && payload.lastLocation) {
-      mob.lastX = Number.isFinite(Number(payload.lastLocation.x)) ? Number(payload.lastLocation.x) : mob.lastX;
-      mob.lastY = Number.isFinite(Number(payload.lastLocation.y)) ? Number(payload.lastLocation.y) : mob.lastY;
-      mob.lastZ = Number.isFinite(Number(payload.lastLocation.z)) ? Number(payload.lastLocation.z) : mob.lastZ;
-      mob.locationObservedAt = payload.lastLocation.observedAt || payload.lastSeen || null;
+    for (const location of Array.isArray(payload.locationHistory) ? payload.locationHistory : []) {
+      rememberMobLocation(mob, { ...location, source: location.source || 'community' });
+    }
+    if (!mob.locationObservedAt && validMobLocation(payload.lastLocation)) {
+      rememberMobLocation(mob, { ...payload.lastLocation, observedAt: payload.lastLocation.observedAt || payload.lastSeen || null, source: 'community' });
     }
     for (const ability of Array.isArray(payload.abilities) ? payload.abilities : []) {
       const name = String(ability.ability || '').trim();
@@ -1406,7 +1506,21 @@ function buildMobIndex(db) {
   return mobs;
 }
 
+const MOB_INDEX_CACHE_TTL_MS = 10_000;
+const mobIndexCache = new WeakMap();
+
+function getCachedMobIndex(db, options = {}) {
+  const now = Date.now();
+  const cached = mobIndexCache.get(db);
+  if (!options.force && cached && now - cached.createdAt < MOB_INDEX_CACHE_TTL_MS) return cached.mobs;
+  const mobs = buildMobIndex(db);
+  mobIndexCache.set(db, { createdAt: now, mobs });
+  return mobs;
+}
+
 function mobZoneName(mob) {
+  const namedLocation = String(mob.namedLocation || '').trim();
+  if (namedLocation) return namedLocation;
   const namedZone = String(mob.namedZone || '').trim();
   if (namedZone) return namedZone;
   const mapKey = mapKeyForCoordinates(mob.lastX, mob.lastZ, mob.lastY);
@@ -1444,9 +1558,10 @@ function publicMobRow(mob) {
     damageTaken: Number(mob.damageTaken.toFixed(1)),
     combatEvents: mob.combatEvents,
     killCount: mob.killCount,
-    lastLocation: [mob.lastX, mob.lastY, mob.lastZ].every((value) => Number.isFinite(Number(value)))
+    lastLocation: validMobLocation({ x: mob.lastX, y: mob.lastY, z: mob.lastZ })
       ? { x: mob.lastX, y: mob.lastY, z: mob.lastZ, observedAt: mob.locationObservedAt || null }
-      : null
+      : null,
+    locationHistory: (mob.locationHistory || []).filter(validMobLocation).slice(0, 12)
   };
 }
 
@@ -1459,7 +1574,7 @@ function getMobSummary(db, options = {}) {
   const hasMinLevel = Number.isFinite(minLevel) && minLevel > 0;
   const hasMaxLevel = Number.isFinite(maxLevel) && maxLevel > 0;
   const limit = Math.max(1, Math.min(1000, Number(options.limit) || 250));
-  const searchedRows = [...buildMobIndex(db).values()]
+  const searchedRows = [...getCachedMobIndex(db, options).values()]
     .map(publicMobRow)
     .filter((row) => !search || [
       row.name,
@@ -1480,7 +1595,10 @@ function getMobSummary(db, options = {}) {
     .filter((row) => named === 'named' ? row.named : named === 'regular' ? !row.named : true)
     .filter((row) => !hasMinLevel || (row.levelMax !== null && row.levelMax !== undefined && Number(row.levelMax) >= minLevel))
     .filter((row) => !hasMaxLevel || (row.levelMin !== null && row.levelMin !== undefined && Number(row.levelMin) <= maxLevel))
-    .sort((left, right) => Date.parse(right.lastSeen || 0) - Date.parse(left.lastSeen || 0) || left.name.localeCompare(right.name));
+    .sort((left, right) => {
+      if (left.named !== right.named) return left.named ? -1 : 1;
+      return left.name.localeCompare(right.name);
+    });
   return {
     generatedAt: new Date().toISOString(),
     totals: {
@@ -1488,7 +1606,7 @@ function getMobSummary(db, options = {}) {
       withAbilities: rows.filter((row) => row.abilityCount > 0).length,
       withDrops: rows.filter((row) => row.dropCount > 0).length,
       kills: rows.reduce((sum, row) => sum + Number(row.killCount || 0), 0),
-      lastSeenAt: rows[0]?.lastSeen || null
+      lastSeenAt: searchedRows.reduce((latest, row) => !latest || (row.lastSeen && row.lastSeen > latest) ? row.lastSeen : latest, null)
     },
     locations: [...locationCounts.entries()]
       .map(([name, count]) => ({ name, count }))
@@ -1497,10 +1615,10 @@ function getMobSummary(db, options = {}) {
   };
 }
 
-function getMobDetail(db, name) {
+function getMobDetail(db, name, options = {}) {
   const wanted = mobKey(name);
   if (!wanted) return null;
-  const mob = buildMobIndex(db).get(wanted);
+  const mob = getCachedMobIndex(db, options).get(wanted);
   if (!mob) return null;
   const row = publicMobRow(mob);
   return {
@@ -1947,6 +2065,19 @@ function getRespawnDeathRows(db, seconds = 6 * 60 * 60, sinceParam = null, limit
     LIMIT ?
   `).all(...params, Math.max(1, Math.min(1000, Number(limit) || 300)));
 
+  const namedRows = db.prepare(`
+    SELECT a.normalized_alias normalizedAlias, nm.name, nm.location, nm.zone,
+           nm.level_min levelMin, nm.level_max levelMax, nm.source_url sourceUrl
+    FROM named_mob_aliases a
+    JOIN named_mobs nm ON nm.shalazam_id = a.shalazam_id
+    ORDER BY a.confidence DESC
+  `).all();
+  const namedByAlias = new Map();
+  for (const named of namedRows) {
+    if (!named.normalizedAlias || namedByAlias.has(named.normalizedAlias)) continue;
+    namedByAlias.set(named.normalizedAlias, named);
+  }
+
   const seen = new Set();
   const deaths = [];
   for (const row of rows) {
@@ -1956,10 +2087,19 @@ function getRespawnDeathRows(db, seconds = 6 * 60 * 60, sinceParam = null, limit
     const key = `${targetKey}|${row.entityId || ''}|${bucket}`;
     if (!targetKey || seen.has(key)) continue;
     seen.add(key);
+    const named = namedByAlias.get(normalizeMobName(row.target || '')) || null;
     deaths.push({
       ...row,
       target: row.target || `Unknown entity ${row.entityId}`,
-      amount: row.amount === null || row.amount === undefined ? null : Number(row.amount)
+      amount: row.amount === null || row.amount === undefined ? null : Number(row.amount),
+      namedMob: named ? {
+        name: named.name,
+        location: named.location || null,
+        zone: named.zone || null,
+        levelMin: named.levelMin ?? null,
+        levelMax: named.levelMax ?? null,
+        sourceUrl: named.sourceUrl || null
+      } : null
     });
   }
   return {

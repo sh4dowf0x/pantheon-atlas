@@ -6,6 +6,17 @@ const DATA_ROOT = process.env.PANTHEON_ATLAS_HOME
   ? path.resolve(process.env.PANTHEON_ATLAS_HOME)
   : APP_ROOT;
 
+const COMMUNITY_WORKER_BASE_URL = 'https://pantheon-atlas.com';
+
+function communityWorkerBaseUrl() {
+  return String(process.env.PANTHEON_ATLAS_COMMUNITY_WORKER_BASE_URL || COMMUNITY_WORKER_BASE_URL || '').trim().replace(/\/+$/, '');
+}
+
+function communityWorkerEndpoint(leaf) {
+  const base = communityWorkerBaseUrl();
+  return base ? `${base}/${leaf}` : '';
+}
+
 const DEFAULT_CONFIG = {
   server: { port: 3117 },
   database: { path: 'data/pantheon-network.sqlite' },
@@ -80,7 +91,7 @@ const DEFAULT_CONFIG = {
     downloadEnabled: true,
     uploadEnabled: false,
     uploadMode: 'worker',
-    uploadEndpoint: '',
+    uploadEndpoint: communityWorkerEndpoint('items'),
     publicBaseUrl: 'https://pub-bb6b866e2c73493f83b42111abb2e1c9.r2.dev',
     manifestUrl: 'https://pub-bb6b866e2c73493f83b42111abb2e1c9.r2.dev/items-manifest.json',
     downloadEveryMinutes: 60,
@@ -101,7 +112,8 @@ const DEFAULT_CONFIG = {
     enabled: true,
     downloadEnabled: true,
     uploadEnabled: false,
-    uploadMode: 'r2',
+    uploadMode: 'worker',
+    uploadEndpoint: communityWorkerEndpoint('mobs'),
     publicBaseUrl: 'https://pub-bb6b866e2c73493f83b42111abb2e1c9.r2.dev',
     manifestUrl: 'https://pub-bb6b866e2c73493f83b42111abb2e1c9.r2.dev/mobs-manifest.json',
     downloadEveryMinutes: 60,
@@ -147,12 +159,43 @@ function resolveFromRoot(filePath, root = DATA_ROOT) {
   return path.isAbsolute(expanded) ? expanded : path.resolve(root, expanded);
 }
 
+function applyCommunityWorkerDefaults(config) {
+  if (!config?.communityItems || !config?.communityMobs) return config;
+  if ((config.communityItems.uploadMode || 'worker') === 'worker' && !config.communityItems.uploadEndpoint) {
+    config.communityItems.uploadEndpoint = communityWorkerEndpoint('items');
+  }
+  if ((config.communityMobs.uploadMode || 'worker') === 'worker' && !config.communityMobs.uploadEndpoint) {
+    config.communityMobs.uploadEndpoint = config.communityItems.uploadEndpoint
+      ? siblingWorkerEndpoint(config.communityItems.uploadEndpoint, 'mobs')
+      : communityWorkerEndpoint('mobs');
+  }
+  return config;
+}
+
+function siblingWorkerEndpoint(uploadEndpoint, leaf) {
+  if (!uploadEndpoint) return '';
+  try {
+    const url = new URL(uploadEndpoint);
+    const parts = url.pathname.split('/').filter(Boolean);
+    if (parts.length && ['items', 'mobs', 'icons'].includes(parts[parts.length - 1])) {
+      parts[parts.length - 1] = leaf;
+    } else {
+      parts.push(leaf);
+    }
+    url.pathname = `/${parts.join('/')}`;
+    return url.toString();
+  } catch {
+    return '';
+  }
+}
+
 function readConfig(configPath = path.join(DATA_ROOT, 'config.json')) {
   let config = DEFAULT_CONFIG;
   if (fs.existsSync(configPath)) {
     const parsed = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     config = mergeConfig(DEFAULT_CONFIG, parsed);
   }
+  applyCommunityWorkerDefaults(config);
 
   config.database.path = resolveFromRoot(config.database.path);
   if (config.addonLogs?.liveFile) config.addonLogs.liveFile = resolveFromRoot(config.addonLogs.liveFile);
@@ -164,8 +207,10 @@ function readConfig(configPath = path.join(DATA_ROOT, 'config.json')) {
 }
 
 module.exports = {
+  COMMUNITY_WORKER_BASE_URL,
   DEFAULT_CONFIG,
   DATA_ROOT,
+  communityWorkerEndpoint,
   readConfig,
   resolveFromRoot
 };

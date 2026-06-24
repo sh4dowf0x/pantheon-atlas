@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const zlib = require('node:zlib');
 const { CommunityItemSync, getNormalizedItems, signedS3PutRequest } = require('../src/itemSync');
+const { getLootItemDetail } = require('../src/dashboard');
 const { cacheLocalItemArtSync, writeItemArtIndex } = require('../src/itemArt');
 const { parseLootLogLine } = require('../src/lootLog');
 const { openStore } = require('../src/store');
@@ -45,6 +46,7 @@ const server = http.createServer((req, res) => {
         requiredLevel: 8,
         stats: { Armor: 22, Stamina: 2 },
         flags: ['Magic'],
+        dropSources: [{ name: 'Community Goblin', count: 2, lastSeen: '2026-06-15T00:30:00.000Z', methods: ['lootdata'], confidences: ['high'] }],
         artUrl: 'https://shalazam.info/static/icons/SkollPantheonSprite/webp/3_Leather_head.webp'
       }]
     }), 'utf8'));
@@ -55,6 +57,24 @@ const server = http.createServer((req, res) => {
     res.end(body);
     return;
   }
+  if (req.method === 'POST' && req.url === '/icons') {
+    const chunks = [];
+    req.on('data', (chunk) => chunks.push(chunk));
+    req.on('end', () => {
+      const body = Buffer.concat(chunks);
+      uploads.push({
+        headers: req.headers,
+        url: req.url,
+        body
+      });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        key: 'item-icons/worker-icon.png',
+        publicUrl: `http://127.0.0.1:${server.address().port}/item-icons/worker-icon.png`
+      }));
+    });
+    return;
+  }
   const chunks = [];
   req.on('data', (chunk) => chunks.push(chunk));
   req.on('end', () => {
@@ -62,6 +82,7 @@ const server = http.createServer((req, res) => {
     const body = req.headers['content-encoding'] === 'gzip' ? zlib.gunzipSync(raw) : raw;
     uploads.push({
       headers: req.headers,
+      url: req.url,
       body: JSON.parse(body.toString('utf8'))
     });
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -167,12 +188,33 @@ async function run() {
   store.upsertLootItem(parsed.item);
   store.upsertLootInstance(parsed.instance);
   store.insertLootEvent(parsed.event);
+  store.insertLootEvent({
+    observedAt: '2026-06-15T00:05:00.000Z',
+    eventType: 'loot_received',
+    character: 'Nexerin',
+    itemInstanceId: 'item-instance-1',
+    itemId: '1',
+    itemName: 'Test Helm',
+    source: 'Test Wolf',
+    quantity: 1,
+    rawJson: JSON.stringify({
+      acquisition: {
+        method: 'recent_offensive_target',
+        confidence: 'high',
+        source: { name: 'Test Wolf', entityType: 'mob', level: 4, x: 100, y: 200, z: 300 }
+      }
+    }),
+    eventKey: 'test-helm-drop-source'
+  });
 
   const items = getNormalizedItems(store.db);
   assert.equal(items.length, 1);
   assert.equal(items[0].equipSlotName, 'Head');
   assert.deepEqual(items[0].classRequirementNames, ['Dire Lord', 'Warrior']);
   assert.equal(items[0].stats.Armor, 12);
+  assert.equal(items[0].dropSources[0].name, 'Test Wolf');
+  assert.equal(items[0].dropSources[0].count, 1);
+  assert.deepEqual(items[0].dropSources[0].methods, ['recent_offensive_target']);
 
   const sync = new CommunityItemSync({
     enabled: true,
@@ -185,6 +227,7 @@ async function run() {
   assert.deepEqual(await sync.uploadChangedItems(), { uploaded: 1, changed: 1 });
   assert.equal(uploads.length, 1);
   assert.equal(uploads[0].body.items[0].name, 'Test Helm');
+  assert.equal(uploads[0].body.items[0].dropSources[0].name, 'Test Wolf');
   assert.match(uploads[0].headers['x-atlas-install-id'], /^[0-9a-f-]{36}$/);
   assert.equal(uploads[0].headers['x-atlas-format'], 'pantheon-atlas-items-v1');
   assert.match(uploads[0].headers['x-atlas-payload-sha256'], /^[0-9a-f]{64}$/);
@@ -211,6 +254,9 @@ async function run() {
   assert.deepEqual(communityHelm.classRequirementNames, ['Dire Lord']);
   assert.equal(communityHelm.stats.Armor, 22);
   assert.equal(communityHelm.artUrl, 'https://shalazam.info/static/icons/SkollPantheonSprite/webp/3_Leather_head.webp');
+  assert.equal(communityHelm.dropSources[0].name, 'Community Goblin');
+  const communityHelmDetail = getLootItemDetail(store.db, 'community-1');
+  assert.equal(communityHelmDetail.dropSources[0].name, 'Community Goblin');
   assert.deepEqual(await downloadSync.uploadChangedItems(), { uploaded: 0, changed: 0 });
   assert.equal(uploads.length, 1);
 
@@ -328,6 +374,53 @@ async function run() {
   assert.match(uploadedIconItem.artUrl, /^https:\/\/pub-test\.r2\.dev\/item-icons\/Icon_Sync_Helm_[0-9a-f]{16}\.png$/);
   assert.equal(uploadedIconItem.artObjectKey, iconPut.url.replace(/^\/pantheon-item-database\//, ''));
   iconStore.close();
+
+  const workerIconStore = openStore(path.join(tempDir, 'worker-icon-sync.sqlite'));
+  const workerIconBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x09, 0x08, 0x07, 0x06]);
+  const workerIconSourcePath = path.join(tempDir, 'Worker_Icon_Helm.png');
+  fs.writeFileSync(workerIconSourcePath, workerIconBytes);
+  const workerCachedIcon = cacheLocalItemArtSync(workerIconSourcePath, { iconKey: 'Worker_Icon_Helm', itemName: 'Worker Icon Helm' });
+  workerIconStore.upsertLootItem({
+    observedAt: '2026-06-15T05:00:00.000Z',
+    itemId: 'worker-icon-1',
+    name: 'Worker Icon Helm',
+    rarity: 'Rare',
+    itemType: 'Armor',
+    armorTypeName: 'Plate',
+    flagsJson: JSON.stringify(['Magic']),
+    statsJson: JSON.stringify({ statModifiers: [{ stat: 'Armor', value: 30 }] }),
+    templateJson: JSON.stringify({
+      itemId: 'worker-icon-1',
+      itemName: 'Worker Icon Helm',
+      itemType: 'Armor',
+      rarity: 'Rare',
+      armorTypeName: 'Plate',
+      equipSlotName: 'Head',
+      iconKey: 'Worker_Icon_Helm',
+      artUrl: workerCachedIcon.artUrl,
+      artSource: 'lootdata'
+    })
+  });
+  uploads.length = 0;
+  const workerIconSync = new CommunityItemSync({
+    enabled: true,
+    uploadEnabled: true,
+    uploadMode: 'worker',
+    uploadEndpoint,
+    statePath: path.join(tempDir, 'worker-icon-sync-state.json'),
+    batchSize: 10,
+    installId: 'worker-install'
+  }, workerIconStore, { atlasVersion: 'test' });
+  assert.deepEqual(await workerIconSync.uploadChangedItems(), { uploaded: 1, changed: 1 });
+  assert.equal(uploads.length, 2);
+  const workerIconPost = uploads.find((row) => row.url === '/icons');
+  assert.ok(workerIconPost);
+  assert.deepEqual(workerIconPost.body, workerIconBytes);
+  const workerItemPost = uploads.find((row) => row.url === '/items');
+  const workerUploadedItem = workerItemPost.body.items.find((item) => item.itemId === 'worker-icon-1');
+  assert.equal(workerUploadedItem.artUrl, `http://127.0.0.1:${port}/item-icons/worker-icon.png`);
+  assert.equal(workerUploadedItem.artObjectKey, 'item-icons/worker-icon.png');
+  workerIconStore.close();
 
   const r2ErrorSync = new CommunityItemSync({
     enabled: true,

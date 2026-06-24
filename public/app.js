@@ -24,6 +24,10 @@ const state = {
   mobNamed: '',
   mobMinLevel: '',
   mobMaxLevel: '',
+  mobRefreshFetchedAt: 0,
+  mobRefreshKey: '',
+  mobRefreshInFlight: false,
+  mobFilterTimer: null,
   healingSelectedSource: null,
   healingSelectedAbilityKey: null,
   petAssignments: loadPetAssignments(),
@@ -65,6 +69,7 @@ const state = {
   respawnDefaultMinutes: Number(window.localStorage.getItem('pantheonParser2.respawnDefaultMinutes') || 15) || 15,
   respawnManualTimers: loadRespawnManualTimers(),
   respawnDismissedKeys: loadRespawnDismissedKeys(),
+  respawnSeenTimerIds: new Set(loadRespawnDismissedKeys()),
   respawnDeaths: [],
   respawnDeathsFetchedAt: 0,
   respawnDeathsRefreshInFlight: false,
@@ -223,6 +228,7 @@ const els = {
   communitySyncDownload: document.querySelector('#community-sync-download'),
   communitySyncUpload: document.querySelector('#community-sync-upload'),
   communitySyncMode: document.querySelector('#community-sync-mode'),
+  communitySyncUploadEndpoint: document.querySelector('#community-sync-upload-endpoint'),
   communitySyncDownloadMinutes: document.querySelector('#community-sync-download-minutes'),
   communitySyncUploadMinutes: document.querySelector('#community-sync-upload-minutes'),
   communitySyncAccessKey: document.querySelector('#community-sync-access-key'),
@@ -881,6 +887,9 @@ function renderCommunitySync(status = {}) {
   els.communitySyncUpload.checked = uploadEnabled;
   els.communitySyncUpload.disabled = !enabled;
   els.communitySyncMode.disabled = !enabled;
+  if (status.uploadMode && [...els.communitySyncMode.options].some((option) => option.value === status.uploadMode)) {
+    els.communitySyncMode.value = status.uploadMode;
+  }
   if (els.communitySyncDownloadMinutes) {
     els.communitySyncDownloadMinutes.value = String(downloadEveryMinutes);
     els.communitySyncDownloadMinutes.disabled = !enabled || !downloadEnabled;
@@ -892,11 +901,12 @@ function renderCommunitySync(status = {}) {
   if (els.communitySyncAccessKey) els.communitySyncAccessKey.disabled = !enabled || els.communitySyncMode.value !== 'r2';
   if (els.communitySyncSecretKey) els.communitySyncSecretKey.disabled = !enabled || els.communitySyncMode.value !== 'r2';
   if (els.communitySyncSaveKeys) els.communitySyncSaveKeys.disabled = !enabled || els.communitySyncMode.value !== 'r2';
-  if (els.communitySyncCheck) els.communitySyncCheck.disabled = !enabled || !downloadEnabled;
-  els.communitySyncNow.disabled = !enabled || !uploadEnabled;
-  if (status.uploadMode && [...els.communitySyncMode.options].some((option) => option.value === status.uploadMode)) {
-    els.communitySyncMode.value = status.uploadMode;
+  if (els.communitySyncUploadEndpoint) {
+    els.communitySyncUploadEndpoint.value = status.uploadEndpoint || '';
+    els.communitySyncUploadEndpoint.disabled = !enabled || els.communitySyncMode.value !== 'worker';
   }
+  if (els.communitySyncCheck) els.communitySyncCheck.disabled = !enabled || !downloadEnabled;
+  els.communitySyncNow.disabled = !enabled || !uploadEnabled || (els.communitySyncMode.value === 'worker' && !String(status.uploadEndpoint || '').trim());
   els.communitySyncDetails.textContent = JSON.stringify({
     mode: status.uploadMode || 'worker',
     bucket: status.bucket || null,
@@ -1501,6 +1511,41 @@ function respawnDeathKey(death, campKey = '') {
   ].join('|');
 }
 
+function respawnDeathObservedMs(death) {
+  const value = Date.parse(death?.observedAt || '');
+  return Number.isFinite(value) ? value : 0;
+}
+
+function respawnNamedDeathGroupKey(death) {
+  const name = normalizePriorityName(death?.namedMob?.name || death?.target || '');
+  if (!name) return '';
+  const entityId = String(death?.entityId || '').trim();
+  if (entityId) return `named|${name}|${entityId}`;
+  const observedAtMs = respawnDeathObservedMs(death);
+  const bucket = observedAtMs ? Math.floor(observedAtMs / (10 * 60_000)) : 'unknown';
+  return `named|${name}|${bucket}`;
+}
+
+function respawnPreferredDeath(current, candidate) {
+  if (!current) return candidate;
+  if (candidate?.eventType === 'kill' && current?.eventType !== 'kill') return candidate;
+  if (candidate?.eventType !== 'kill' && current?.eventType === 'kill') return current;
+  return respawnDeathObservedMs(candidate) < respawnDeathObservedMs(current) ? candidate : current;
+}
+
+function latestRespawnDeathForCamp(camp, deaths) {
+  const groups = new Map();
+  for (const death of deaths || []) {
+    if (!respawnCampMatchesDeath(camp, death)) continue;
+    const target = normalizePriorityName(death?.target || '');
+    const entityId = String(death?.entityId || '').trim();
+    const groupKey = entityId ? `${target}|${entityId}` : `${target}|${Math.floor(respawnDeathObservedMs(death) / (10 * 60_000))}`;
+    groups.set(groupKey, respawnPreferredDeath(groups.get(groupKey), death));
+  }
+  return [...groups.values()]
+    .sort((left, right) => respawnDeathObservedMs(right) - respawnDeathObservedMs(left))[0] || null;
+}
+
 function respawnCampMatchesDeath(camp, death) {
   const target = normalizePriorityName(death?.target || '');
   if (!target) return false;
@@ -1514,16 +1559,16 @@ function respawnCampMatchesDeath(camp, death) {
 function buildRespawnTimers() {
   const nowMs = Date.now();
   const timers = [];
+  const timerDeathKeys = new Set();
   const camps = respawnCampEntries();
   for (const camp of camps) {
-    const death = (state.respawnDeaths || [])
-      .filter((row) => respawnCampMatchesDeath(camp, row))
-      .sort((left, right) => Date.parse(right.observedAt || 0) - Date.parse(left.observedAt || 0))[0];
+    const death = latestRespawnDeathForCamp(camp, state.respawnDeaths || []);
     if (!death) continue;
     const key = respawnDeathKey(death, camp.key);
     if (state.respawnDismissedKeys.has(key)) continue;
     const killedAtMs = Date.parse(death.observedAt || '');
     if (!Number.isFinite(killedAtMs)) continue;
+    if (death.namedMob?.name) timerDeathKeys.add(respawnNamedDeathGroupKey(death));
     const respawnAtMs = killedAtMs + camp.respawnMinutes * 60_000;
     timers.push({
       id: key,
@@ -1535,6 +1580,38 @@ function buildRespawnTimers() {
       remainingMs: respawnAtMs - nowMs,
       manual: false,
       source: camp.source,
+      eventType: death.eventType
+    });
+  }
+
+  const namedDeaths = new Map();
+  for (const death of state.respawnDeaths || []) {
+    if (!death?.namedMob?.name) continue;
+    const deathKey = respawnNamedDeathGroupKey(death);
+    if (!deathKey) continue;
+    namedDeaths.set(deathKey, respawnPreferredDeath(namedDeaths.get(deathKey), death));
+  }
+  for (const [deathKey, death] of namedDeaths) {
+    if (timerDeathKeys.has(deathKey)) continue;
+    const killedAtMs = Date.parse(death.observedAt || '');
+    if (!Number.isFinite(killedAtMs)) continue;
+    const id = deathKey;
+    if (state.respawnDismissedKeys.has(id)) continue;
+    timerDeathKeys.add(deathKey);
+    const minutes = respawnDefaultMinutes();
+    const respawnAtMs = killedAtMs + minutes * 60_000;
+    timers.push({
+      id,
+      campName: death.namedMob.name,
+      sourceName: death.target,
+      killedAt: death.observedAt,
+      respawnMinutes: minutes,
+      respawnAt: new Date(respawnAtMs).toISOString(),
+      remainingMs: respawnAtMs - nowMs,
+      manual: false,
+      namedAuto: true,
+      namedLocation: death.namedMob.location || death.namedMob.zone || null,
+      source: 'named',
       eventType: death.eventType
     });
   }
@@ -2101,6 +2178,27 @@ function playPriorityAlert() {
   });
 }
 
+function playNamedRespawnAlert() {
+  if (!state.prioritySound) return;
+  const audio = ensurePriorityAudio();
+  if (!audio) return;
+  const now = audio.currentTime;
+  const gain = audio.createGain();
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.14, now + 0.03);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.9);
+  gain.connect(audio.destination);
+
+  [392, 523.25, 659.25, 523.25].forEach((frequency, index) => {
+    const osc = audio.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(frequency, now + index * 0.16);
+    osc.connect(gain);
+    osc.start(now + index * 0.16);
+    osc.stop(now + index * 0.16 + 0.18);
+  });
+}
+
 function renderPriorityMobs(entities) {
   if (!els.priorityActiveList || !els.priorityCount) return;
   const entries = priorityEntries();
@@ -2152,10 +2250,13 @@ function renderPriorityMobs(entities) {
 function renderRespawnTimers() {
   if (!els.respawnTimerList || !els.respawnCount) return;
   const timers = buildRespawnTimers();
+  const newNamedTimers = timers.filter((timer) => timer.namedAuto && !state.respawnSeenTimerIds.has(timer.id));
+  for (const timer of timers) state.respawnSeenTimerIds.add(timer.id);
+  if (newNamedTimers.length) playNamedRespawnAlert();
   const dueCount = timers.filter((timer) => timer.remainingMs <= 0).length;
   els.respawnCount.textContent = `${timers.length} timer${timers.length === 1 ? '' : 's'}${dueCount ? ` / ${dueCount} due` : ''}`;
   if (!timers.length) {
-    els.respawnTimerList.innerHTML = '<div class="empty">No watched deaths yet.</div>';
+    els.respawnTimerList.innerHTML = '<div class="empty">No named deaths yet.</div>';
     return;
   }
   els.respawnTimerList.replaceChildren(...timers.slice(0, 32).map((timer) => {
@@ -2164,7 +2265,9 @@ function renderRespawnTimers() {
     row.className = `respawn-row${due ? ' due' : ''}`;
     const sourceLabel = timer.manual
       ? 'manual'
-      : `${timer.eventType === 'health_update' ? 'health' : 'kill'} / ${timer.source}`;
+      : timer.namedAuto
+        ? `${timer.eventType === 'health_update' ? 'health' : 'kill'} / named`
+        : `${timer.eventType === 'health_update' ? 'health' : 'kill'} / ${timer.source}`;
     row.innerHTML = `
       <div class="respawn-row-main">
         <strong>${escapeHtml(timer.campName || timer.sourceName || 'Unknown camp')}</strong>
@@ -2172,7 +2275,7 @@ function renderRespawnTimers() {
       </div>
       <div class="respawn-progress"><span style="width: ${Math.max(0, Math.min(100, 100 - (Math.max(0, timer.remainingMs) / (timer.respawnMinutes * 60_000)) * 100)).toFixed(1)}%"></span></div>
       <div class="respawn-meta">
-        <span>${escapeHtml(timer.sourceName || timer.campName || '')}</span>
+        <span>${escapeHtml(timer.namedLocation || timer.sourceName || timer.campName || '')}</span>
         <span>${formatTime(timer.killedAt)} -> ${formatTime(timer.respawnAt)}</span>
       </div>
       <div class="respawn-meta">
@@ -3092,7 +3195,8 @@ function updateMobFilterOptions(data) {
   state.mobLocation = els.mobLocationFilter.value;
 }
 
-function renderMobList(rows = []) {
+function renderMobList(rows = [], options = {}) {
+  const previousScrollTop = options.preserveScroll ? els.mobList.scrollTop : 0;
   if (!rows.length) {
     state.selectedMobName = null;
     els.mobList.innerHTML = '<div class="empty">No matching mobs.</div>';
@@ -3138,7 +3242,7 @@ function renderMobList(rows = []) {
     `;
     const selectRow = async () => {
       state.selectedMobName = row.name;
-      renderMobList(state.mobData?.rows || []);
+      renderMobList(state.mobData?.rows || [], { preserveScroll: true });
       await loadMobDetail(row.name);
     };
     tr.addEventListener('click', selectRow);
@@ -3150,6 +3254,7 @@ function renderMobList(rows = []) {
     return tr;
   }));
   els.mobList.replaceChildren(table);
+  if (options.preserveScroll) els.mobList.scrollTop = previousScrollTop;
 }
 
 function renderMobDetail(mob) {
@@ -3215,20 +3320,56 @@ async function loadMobDetail(name = state.selectedMobName) {
   renderMobDetail(detail);
 }
 
-async function refreshMobs() {
+function mobFilterKey() {
+  return JSON.stringify({
+    search: state.mobSearch,
+    location: state.mobLocation,
+    named: state.mobNamed,
+    minLevel: state.mobMinLevel,
+    maxLevel: state.mobMaxLevel
+  });
+}
+
+function scheduleMobRefresh(delayMs = 250) {
+  window.clearTimeout(state.mobFilterTimer);
+  state.mobFilterTimer = window.setTimeout(() => {
+    if (state.tab === 'mobs') refreshMobs({ force: true }).catch((error) => {
+      els.status.textContent = `Mob database error: ${error.message}`;
+      els.status.classList.add('error');
+    });
+  }, delayMs);
+}
+
+async function refreshMobs(options = {}) {
+  if (state.mobRefreshInFlight) return;
+  const key = mobFilterKey();
+  const now = Date.now();
+  if (!options.force && state.mobData && key === state.mobRefreshKey && now - Number(state.mobRefreshFetchedAt || 0) < 15_000) {
+    renderMobMetrics(state.mobData);
+    updateMobFilterOptions(state.mobData);
+    renderMobList(state.mobData.rows || [], { preserveScroll: true });
+    return;
+  }
+  state.mobRefreshInFlight = true;
   const params = new URLSearchParams({ limit: '300' });
   if (state.mobSearch) params.set('search', state.mobSearch);
   if (state.mobLocation) params.set('location', state.mobLocation);
   if (state.mobNamed) params.set('named', state.mobNamed);
   if (state.mobMinLevel) params.set('minLevel', state.mobMinLevel);
   if (state.mobMaxLevel) params.set('maxLevel', state.mobMaxLevel);
-  const data = await fetchJson(`/api/mobs/summary?${params}`);
-  state.mobData = data;
-  renderMobMetrics(data);
-  updateMobFilterOptions(data);
-  renderMobList(data.rows || []);
-  await loadMobDetail();
-  els.status.textContent = data.totals.lastSeenAt ? `Mob data through ${formatTime(data.totals.lastSeenAt)}` : 'Waiting for mob data';
+  try {
+    const data = await fetchJson(`/api/mobs/summary?${params}`);
+    state.mobData = data;
+    state.mobRefreshKey = key;
+    state.mobRefreshFetchedAt = Date.now();
+    renderMobMetrics(data);
+    updateMobFilterOptions(data);
+    renderMobList(data.rows || [], { preserveScroll: true });
+    await loadMobDetail();
+    els.status.textContent = data.totals.lastSeenAt ? `Mob data through ${formatTime(data.totals.lastSeenAt)}` : 'Waiting for mob data';
+  } finally {
+    state.mobRefreshInFlight = false;
+  }
 }
 
 async function refreshDiagnostics() {
@@ -3366,38 +3507,38 @@ if (els.lootSortFilter) {
 }
 
 if (els.mobSearch) {
-  els.mobSearch.addEventListener('input', async () => {
+  els.mobSearch.addEventListener('input', () => {
     state.mobSearch = els.mobSearch.value.trim();
     state.selectedMobName = null;
-    if (state.tab === 'mobs') await refreshMobs();
+    scheduleMobRefresh();
   });
 }
 if (els.mobLocationFilter) {
   els.mobLocationFilter.addEventListener('change', async () => {
     state.mobLocation = els.mobLocationFilter.value;
     state.selectedMobName = null;
-    if (state.tab === 'mobs') await refreshMobs();
+    if (state.tab === 'mobs') await refreshMobs({ force: true });
   });
 }
 if (els.mobNamedFilter) {
   els.mobNamedFilter.addEventListener('change', async () => {
     state.mobNamed = els.mobNamedFilter.value;
     state.selectedMobName = null;
-    if (state.tab === 'mobs') await refreshMobs();
+    if (state.tab === 'mobs') await refreshMobs({ force: true });
   });
 }
 if (els.mobMinLevel) {
-  els.mobMinLevel.addEventListener('input', async () => {
+  els.mobMinLevel.addEventListener('input', () => {
     state.mobMinLevel = els.mobMinLevel.value.trim();
     state.selectedMobName = null;
-    if (state.tab === 'mobs') await refreshMobs();
+    scheduleMobRefresh();
   });
 }
 if (els.mobMaxLevel) {
-  els.mobMaxLevel.addEventListener('input', async () => {
+  els.mobMaxLevel.addEventListener('input', () => {
     state.mobMaxLevel = els.mobMaxLevel.value.trim();
     state.selectedMobName = null;
-    if (state.tab === 'mobs') await refreshMobs();
+    scheduleMobRefresh();
   });
 }
 
@@ -3418,7 +3559,7 @@ async function syncCommunityItemsNow({ refreshLootView = false } = {}) {
 async function syncCommunityMobsNow({ refreshMobView = false } = {}) {
   const download = await postJson('/api/community-mobs/download', {});
   const upload = await postJson('/api/community-mobs/upload', { full: true });
-  if (refreshMobView && state.tab === 'mobs') await refreshMobs();
+  if (refreshMobView && state.tab === 'mobs') await refreshMobs({ force: true });
   return { download, upload };
 }
 
@@ -3428,6 +3569,7 @@ function communitySyncConfigPatch(extra = {}) {
     downloadEnabled: els.communitySyncDownload ? els.communitySyncDownload.checked : true,
     uploadEnabled: els.communitySyncUpload.checked,
     uploadMode: els.communitySyncMode.value,
+    uploadEndpoint: els.communitySyncUploadEndpoint ? els.communitySyncUploadEndpoint.value.trim() : '',
     downloadEveryMinutes: Number(els.communitySyncDownloadMinutes?.value || 60) || 60,
     uploadEveryMinutes: Number(els.communitySyncUploadMinutes?.value || 30) || 30,
     ...extra
@@ -3478,7 +3620,7 @@ if (els.communitySyncMode) {
   });
 }
 
-for (const input of [els.communitySyncDownloadMinutes, els.communitySyncUploadMinutes].filter(Boolean)) {
+for (const input of [els.communitySyncUploadEndpoint, els.communitySyncDownloadMinutes, els.communitySyncUploadMinutes].filter(Boolean)) {
   input.addEventListener('change', async () => {
     try {
       await updateCommunitySyncConfig(communitySyncConfigPatch());

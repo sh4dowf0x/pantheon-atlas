@@ -1,4 +1,4 @@
-name = "pantheon-atlas-item-upload"
+name = "pantheon-atlas-community-sync"
 main = "item-upload-worker.js"
 compatibility_date = "2026-06-15"
 
@@ -7,7 +7,10 @@ binding = "ITEM_BUCKET"
 bucket_name = "pantheon-item-database"
 
 [vars]
-OBJECT_PREFIX = "contributions"
+PUBLIC_BASE_URL = "https://your-public-r2-domain.r2.dev"
+ITEM_OBJECT_PREFIX = "contributions"
+MOB_OBJECT_PREFIX = "mob-contributions"
+ICON_OBJECT_PREFIX = "item-icons"
 
 # Optional:
 # Set this as a Worker secret, not in this file:

@@ -16,6 +16,23 @@ function writeJsonFile(filePath, value) {
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+function siblingUploadEndpoint(uploadEndpoint, leaf) {
+  if (!uploadEndpoint) return '';
+  try {
+    const url = new URL(uploadEndpoint);
+    const parts = url.pathname.split('/').filter(Boolean);
+    if (parts.length && ['items', 'mobs', 'icons'].includes(parts[parts.length - 1])) {
+      parts[parts.length - 1] = leaf;
+    } else {
+      parts.push(leaf);
+    }
+    url.pathname = `/${parts.join('/')}`;
+    return url.toString();
+  } catch {
+    return '';
+  }
+}
+
 function parseArgs(argv = process.argv) {
   const args = {
     configPath: path.resolve(process.cwd(), 'config.json'),
@@ -270,6 +287,7 @@ async function runApp(argv = process.argv) {
     if (config.communityItems.uploadMode && !config.communityMobs.uploadMode) {
       config.communityMobs.uploadMode = config.communityItems.uploadMode;
     }
+    if (config.communityItems.uploadEndpoint && !config.communityMobs.uploadEndpoint) config.communityMobs.uploadEndpoint = siblingUploadEndpoint(config.communityItems.uploadEndpoint, 'mobs');
   }
   if (args.port) config.server.port = args.port;
   if (args.pid) config.pantheon.processId = args.pid;
@@ -419,7 +437,8 @@ async function runApp(argv = process.argv) {
     enabled: Boolean(config.communityMobs?.enabled),
     downloadEnabled: config.communityMobs?.downloadEnabled !== false,
     uploadEnabled: Boolean(config.communityMobs?.uploadEnabled),
-    uploadMode: config.communityMobs?.uploadMode || 'r2',
+    uploadMode: config.communityMobs?.uploadMode || 'worker',
+    uploadEndpoint: config.communityMobs?.uploadEndpoint || null,
     bucket: config.communityMobs?.r2?.bucket || null,
     r2Endpoint: config.communityMobs?.r2?.endpoint || null,
     publicBaseUrl: config.communityMobs?.publicBaseUrl || null,
@@ -447,6 +466,16 @@ async function runApp(argv = process.argv) {
           ...(config.communityItems?.r2 || {})
         }
       };
+      if (config.communityMobs) {
+        fileConfig.communityMobs = {
+          ...(fileConfig.communityMobs || {}),
+          ...(config.communityMobs || {}),
+          r2: {
+            ...(fileConfig.communityMobs?.r2 || {}),
+            ...(config.communityMobs?.r2 || {})
+          }
+        };
+      }
       writeJsonFile(args.configPath, fileConfig);
     } catch (error) {
       console.error(`Community item config save failed: ${error.message}`);
@@ -467,6 +496,7 @@ async function runApp(argv = process.argv) {
     if (patch.downloadEnabled !== undefined) next.downloadEnabled = Boolean(patch.downloadEnabled);
     if (patch.uploadEnabled !== undefined) next.uploadEnabled = Boolean(patch.uploadEnabled);
     if (patch.uploadMode) next.uploadMode = String(patch.uploadMode);
+    if (patch.uploadEndpoint !== undefined) next.uploadEndpoint = String(patch.uploadEndpoint || '').trim();
     if (patch.downloadEveryMinutes !== undefined) next.downloadEveryMinutes = Math.max(1, Math.min(1440, Number(patch.downloadEveryMinutes) || 60));
     if (patch.uploadEveryMinutes !== undefined) next.uploadEveryMinutes = Math.max(1, Math.min(1440, Number(patch.uploadEveryMinutes) || 30));
     if (patch.r2 && typeof patch.r2 === 'object') {
@@ -479,6 +509,11 @@ async function runApp(argv = process.argv) {
       }
     }
     config.communityItems = next;
+    config.communityMobs = {
+      ...(config.communityMobs || {}),
+      uploadMode: next.uploadMode,
+      uploadEndpoint: next.uploadEndpoint ? siblingUploadEndpoint(next.uploadEndpoint, 'mobs') : ''
+    };
     if (communityItemSync) {
       communityItemSync.stop();
       communityItemSync = null;

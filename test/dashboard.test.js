@@ -140,6 +140,8 @@ store.insertEvent({
 });
 const respawnDeaths = getRespawnDeathRows(store.db, 300);
 assert.equal(respawnDeaths.rows[0].target, 'Larcs the Weaponsmith');
+assert.equal(respawnDeaths.rows[0].namedMob.name, 'Larcs the Weaponsmith');
+assert.equal(respawnDeaths.rows[0].namedMob.location, 'Gadai Camps');
 assert.ok(respawnDeaths.rows.some((row) => row.eventType === 'kill'));
 
 const goblinStateDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-goblin-map-state-test-'));
@@ -1432,10 +1434,39 @@ const knownNamedSummary = getMobSummary(store.db, { search: 'Hssyr' });
 assert.equal(knownNamedSummary.rows[0].name, 'Hssyr the Wretch');
 assert.equal(knownNamedSummary.rows[0].named, true);
 assert.equal(knownNamedSummary.rows[0].namedName, 'Hssyr the Wretch');
-assert.equal(knownNamedSummary.rows[0].zoneName, "Avendyr's Pass");
+assert.equal(knownNamedSummary.rows[0].zoneName, 'Halnir Cave');
 const knownNamedDetail = getMobDetail(store.db, 'Hssyr the Wretch');
 assert.equal(knownNamedDetail.named, true);
 assert.equal(knownNamedDetail.location, 'Halnir Cave');
+store.db.prepare(`
+  INSERT INTO community_mobs (
+    key, name, normalized_name, payload_json, source_install_id, first_seen, last_seen, updated_at
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(key) DO UPDATE SET payload_json = excluded.payload_json, updated_at = excluded.updated_at
+`).run(
+  'bloodsick hulk',
+  'Bloodsick Hulk',
+  'bloodsick hulk',
+  JSON.stringify({
+    key: 'bloodsick hulk',
+    name: 'Bloodsick Hulk',
+    named: true,
+    location: 'Halnir Cave Dungeon',
+    zoneName: "Avendyr's Pass",
+    levelMin: 18,
+    levelMax: 18,
+    lastLocation: { x: 0, y: 0, z: 0, observedAt: new Date().toISOString() }
+  }),
+  'test',
+  new Date().toISOString(),
+  new Date().toISOString(),
+  new Date().toISOString()
+);
+const zeroLocationMob = getMobDetail(store.db, 'Bloodsick Hulk', { force: true });
+assert.equal(zeroLocationMob.location, 'Halnir Cave Dungeon');
+assert.equal(zeroLocationMob.zoneName, 'Halnir Cave Dungeon');
+assert.equal(zeroLocationMob.lastLocation, null);
+assert.equal(zeroLocationMob.locationHistory.length, 0);
 
 store.db.prepare(`
   UPDATE named_mobs
@@ -1443,17 +1474,17 @@ store.db.prepare(`
   WHERE shalazam_id = ?
 `).run('Deadheart clearing', 'Wilds End', 12, 14, 117);
 
-const mobSummary = getMobSummary(store.db, { search: 'Vaelris' });
+const mobSummary = getMobSummary(store.db, { search: 'Vaelris', force: true });
 assert.equal(mobSummary.rows[0].name, 'Vaelris the Deadheart');
 assert.equal(mobSummary.rows[0].abilityCount, 1);
 assert.equal(mobSummary.rows[0].dropCount, 1);
 assert.equal(mobSummary.rows[0].dropEventCount, 1);
 assert.equal(mobSummary.rows[0].named, true);
-assert.equal(mobSummary.rows[0].zoneName, 'Wilds End');
-assert.ok(mobSummary.locations.some((row) => row.name === 'Wilds End'));
-const namedMobSummary = getMobSummary(store.db, { named: 'named', location: 'Wilds End', minLevel: '1', maxLevel: '99' });
-assert.equal(namedMobSummary.rows[0].name, 'Vaelris the Deadheart');
-const mobDetail = getMobDetail(store.db, 'Vaelris the Deadheart');
+assert.equal(mobSummary.rows[0].zoneName, 'Deadheart clearing');
+assert.ok(mobSummary.locations.some((row) => row.name === 'Deadheart clearing'));
+const namedMobSummary = getMobSummary(store.db, { named: 'named', location: 'Deadheart clearing', minLevel: '1', maxLevel: '99', force: true });
+assert.ok(namedMobSummary.rows.some((row) => row.name === 'Vaelris the Deadheart'));
+const mobDetail = getMobDetail(store.db, 'Vaelris the Deadheart', { force: true });
 assert.equal(mobDetail.named, true);
 assert.equal(mobDetail.location, 'Deadheart clearing');
 assert.equal(mobDetail.abilities[0].ability, 'Grave Hex');

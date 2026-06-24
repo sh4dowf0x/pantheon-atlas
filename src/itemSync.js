@@ -81,6 +81,53 @@ function normalizeSourceRows(value) {
     .filter(Boolean);
 }
 
+function normalizeDropSourceRows(value) {
+  const rows = parseJson(value, []);
+  if (!Array.isArray(rows)) return [];
+  const bySource = new Map();
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') continue;
+    const raw = parseJson(row.rawJson, {});
+    const acquisition = raw.acquisition && typeof raw.acquisition === 'object' ? raw.acquisition : {};
+    const parsed = raw.parsed && typeof raw.parsed === 'object' ? raw.parsed : {};
+    const sourceObject = acquisition.source && typeof acquisition.source === 'object' ? acquisition.source : null;
+    const name = String(row.source || sourceObject?.name || acquisition.source || parsed.source || parsed.corpse || '').trim();
+    if (!name || /^player$/i.test(name)) continue;
+    const key = name.toLowerCase();
+    const current = bySource.get(key) || {
+      name,
+      count: 0,
+      firstSeen: row.observedAt || null,
+      lastSeen: row.observedAt || null,
+      methods: new Set(),
+      confidences: new Set(),
+      level: null,
+      entityType: null,
+      x: null,
+      y: null,
+      z: null
+    };
+    current.count += 1;
+    if (row.observedAt && (!current.firstSeen || row.observedAt < current.firstSeen)) current.firstSeen = row.observedAt;
+    if (row.observedAt && (!current.lastSeen || row.observedAt > current.lastSeen)) current.lastSeen = row.observedAt;
+    if (acquisition.method) current.methods.add(acquisition.method);
+    if (acquisition.confidence) current.confidences.add(acquisition.confidence);
+    if (sourceObject?.level !== undefined && sourceObject.level !== null && Number.isFinite(Number(sourceObject.level))) current.level = Number(sourceObject.level);
+    if (sourceObject?.entityType) current.entityType = sourceObject.entityType;
+    for (const axis of ['x', 'y', 'z']) {
+      if (sourceObject?.[axis] !== undefined && sourceObject[axis] !== null && Number.isFinite(Number(sourceObject[axis]))) current[axis] = Number(sourceObject[axis]);
+    }
+    bySource.set(key, current);
+  }
+  return [...bySource.values()]
+    .map((source) => ({
+      ...source,
+      methods: [...source.methods],
+      confidences: [...source.confidences]
+    }))
+    .sort((left, right) => right.count - left.count || String(right.lastSeen || '').localeCompare(String(left.lastSeen || '')) || left.name.localeCompare(right.name));
+}
+
 function mergeSourceLists(...lists) {
   const seen = new Set();
   const output = [];
@@ -99,6 +146,9 @@ function normalizeItemRow(row) {
   const stats = parseJson(row.statsJson, {});
   const maxDamage = Number(row.maxDamage);
   const delay = Number(row.delay);
+  const localDropSources = normalizeDropSourceRows(row.sourcesJson);
+  const communitySources = Array.isArray(template.communitySources) ? template.communitySources : [];
+  const dropSources = mergeSourceLists(localDropSources, communitySources).slice(0, 40);
   return {
     itemId: String(row.itemId),
     name: row.name,
@@ -123,7 +173,8 @@ function normalizeItemRow(row) {
     iconKey: template.iconKey || null,
     artUrl: template.artUrl || template.iconUrl || itemArtUrlForName(row.name) || null,
     description: template.itemDescription || null,
-    sources: mergeSourceLists(Array.isArray(template.communitySources) ? template.communitySources : [], normalizeSourceRows(row.sourcesJson)),
+    sources: mergeSourceLists(communitySources, normalizeSourceRows(row.sourcesJson)),
+    dropSources,
     source: {
       firstSeen: row.firstSeen,
       lastSeen: row.lastSeen,
@@ -175,6 +226,34 @@ function saveState(statePath, state) {
   fs.writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`);
 }
 
+function itemSyncStatePath(config) {
+  return config.statePath || path.resolve(process.cwd(), 'data', 'community-item-sync.json');
+}
+
+function syncLogPath(config) {
+  return config.logPath || path.join(path.dirname(itemSyncStatePath(config)), 'community-sync.log');
+}
+
+function appendSyncLog(config, scope, event, details = {}) {
+  const safeDetails = { ...details };
+  delete safeDetails.accessKeyId;
+  delete safeDetails.secretAccessKey;
+  delete safeDetails.uploadToken;
+  const row = {
+    at: new Date().toISOString(),
+    scope,
+    event,
+    ...safeDetails
+  };
+  try {
+    const filePath = syncLogPath(config);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.appendFileSync(filePath, `${JSON.stringify(row)}\n`);
+  } catch {
+    // Logging must never break sync.
+  }
+}
+
 function changedItems(items, state) {
   const itemHashes = state.itemHashes || {};
   return items
@@ -219,7 +298,11 @@ function itemRecordFromCommunityItem(item, observedAt = new Date().toISOString()
     itemFlags: Array.isArray(item.flags) ? item.flags.join(', ') : item.flags || null,
     communitySource: true
   };
-  if (Array.isArray(item.sources) && item.sources.length) template.communitySources = item.sources;
+  const communitySources = mergeSourceLists(
+    Array.isArray(item.sources) ? item.sources : [],
+    Array.isArray(item.dropSources) ? item.dropSources : []
+  );
+  if (communitySources.length) template.communitySources = communitySources;
   return {
     observedAt,
     itemId: String(item.itemId),
@@ -396,6 +479,18 @@ async function responseErrorText(response) {
   return compact ? `${response.status} ${compact}` : String(response.status);
 }
 
+function siblingUploadEndpoint(uploadEndpoint, leaf) {
+  const url = new URL(uploadEndpoint);
+  const parts = url.pathname.split('/').filter(Boolean);
+  if (parts.length && ['items', 'mobs', 'icons'].includes(parts[parts.length - 1])) {
+    parts[parts.length - 1] = leaf;
+  } else {
+    parts.push(leaf);
+  }
+  url.pathname = `/${parts.join('/')}`;
+  return url.toString();
+}
+
 async function postJsonGzip(url, payload, config = {}) {
   const body = zlib.gzipSync(Buffer.from(JSON.stringify(payload), 'utf8'));
   const payloadHash = sha256(body);
@@ -424,6 +519,71 @@ async function postJsonGzip(url, payload, config = {}) {
   } catch {
     return { response };
   }
+}
+
+async function uploadWorkerItemIcon(config, item, uploadedKeys) {
+  const artUrl = String(item?.artUrl || '').trim();
+  if (!isLocalItemArtUrl(artUrl)) return null;
+  const filePath = itemArtCachePath(artUrl);
+  if (!filePath) throw new Error(`Community item icon upload failed: unsupported local item icon for ${item.name || item.itemId || 'item'}.`);
+  let body;
+  try {
+    body = await fs.promises.readFile(filePath);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      throw new Error(`Community item icon upload failed: missing local item icon for ${item.name || item.itemId || 'item'}.`);
+    }
+    throw error;
+  }
+  const dedupeKey = `${filePath}:${body.length}`;
+  if (uploadedKeys.has(dedupeKey)) return uploadedKeys.get(dedupeKey);
+  const headers = {
+    'Content-Type': itemArtContentType(artUrl),
+    'X-Atlas-Install-Id': config.installId || 'anonymous',
+    'X-Atlas-Icon-Name': item.name || item.itemId || path.basename(filePath),
+    'X-Atlas-Icon-Key': item.iconKey || path.basename(filePath)
+  };
+  if (config.uploadToken) headers.Authorization = `Bearer ${config.uploadToken}`;
+  const response = await fetch(config.iconUploadEndpoint || siblingUploadEndpoint(config.uploadEndpoint, 'icons'), {
+    method: 'POST',
+    headers,
+    body
+  });
+  if (!response.ok) {
+    throw new Error(`Community item icon upload failed: ${await responseErrorText(response)}`);
+  }
+  const parsed = await response.json().catch(() => ({}));
+  if (!parsed.publicUrl) throw new Error('Community item icon upload failed: worker response did not include a public URL.');
+  const uploaded = { key: parsed.key || null, publicUrl: parsed.publicUrl };
+  uploadedKeys.set(dedupeKey, uploaded);
+  return uploaded;
+}
+
+async function prepareWorkerPayloadWithArt(config, payload) {
+  if (!Array.isArray(payload?.items) || !payload.items.some((item) => isLocalItemArtUrl(item?.artUrl))) {
+    return { payload, artUploaded: 0 };
+  }
+  const uploadedKeys = new Map();
+  let artUploaded = 0;
+  const items = [];
+  for (const item of payload.items) {
+    const uploaded = await uploadWorkerItemIcon({ ...config, installId: payload.installId || config.installId }, item, uploadedKeys);
+    if (!uploaded) {
+      items.push(item);
+      continue;
+    }
+    artUploaded += 1;
+    items.push({
+      ...item,
+      artUrl: uploaded.publicUrl,
+      artSource: item.artSource || 'lootdata-worker',
+      artObjectKey: uploaded.key
+    });
+  }
+  return {
+    payload: { ...payload, items },
+    artUploaded
+  };
 }
 
 function resolveSecret(value, envName) {
@@ -618,7 +778,9 @@ async function uploadPayload(config, payload) {
       publicBaseUrl: config.publicBaseUrl || config.r2?.publicBaseUrl || null
     }, payload);
   }
-  return postJsonGzip(config.uploadEndpoint, payload, config);
+  const prepared = await prepareWorkerPayloadWithArt(config, payload);
+  const result = await postJsonGzip(config.uploadEndpoint, prepared.payload, config);
+  return { ...result, artUploaded: prepared.artUploaded };
 }
 
 class CommunityItemSync {
@@ -683,12 +845,13 @@ class CommunityItemSync {
     this.downloadBusy = true;
     this.status.lastCheckedAt = new Date().toISOString();
     try {
-      const statePath = this.config.statePath || path.resolve(process.cwd(), 'data', 'community-item-sync.json');
+      const statePath = itemSyncStatePath(this.config);
       const state = loadState(statePath);
       state.downloadedKeys = state.downloadedKeys || {};
       state.itemHashes = state.itemHashes || {};
       const manifest = await fetchCommunityManifest(this.config.manifestUrl);
       const rows = normalizeManifestRows(manifest);
+      appendSyncLog(this.config, 'items', 'download_start', { manifestUrl: this.config.manifestUrl, manifestRows: rows.length });
       let downloaded = 0;
       let imported = 0;
       let skipped = 0;
@@ -744,9 +907,11 @@ class CommunityItemSync {
       this.status.lastDownloadedAt = state.lastDownloadedAt;
       this.status.lastDownloadedCount = imported;
       this.status.lastError = skipped ? `Skipped ${skipped} unavailable community item object${skipped === 1 ? '' : 's'}.` : null;
+      appendSyncLog(this.config, 'items', 'download_complete', { downloaded, imported, skipped });
       return skipped ? { downloaded, imported, skipped } : { downloaded, imported };
     } catch (error) {
       this.status.lastError = error.message;
+      appendSyncLog(this.config, 'items', 'download_error', { error: error.message });
       throw error;
     } finally {
       this.downloadBusy = false;
@@ -758,12 +923,14 @@ class CommunityItemSync {
     if (this.config.uploadMode === 'r2') {
       if (!this.config.r2?.endpoint || !this.config.r2?.bucket) {
         this.status.lastError = 'R2 item upload endpoint or bucket is not configured.';
+        appendSyncLog(this.config, 'items', 'upload_blocked', { mode: 'r2', error: this.status.lastError });
         return { uploaded: 0, changed: 0 };
       }
       this.status.r2AccessKeyConfigured = hasSecret(this.config.r2?.accessKeyId, this.config.r2?.accessKeyIdEnv || 'PANTHEON_ATLAS_R2_ACCESS_KEY_ID');
       this.status.r2SecretKeyConfigured = hasSecret(this.config.r2?.secretAccessKey, this.config.r2?.secretAccessKeyEnv || 'PANTHEON_ATLAS_R2_SECRET_ACCESS_KEY');
     } else if (!this.config.uploadEndpoint) {
       this.status.lastError = 'Community item upload endpoint is not configured.';
+      appendSyncLog(this.config, 'items', 'upload_blocked', { mode: this.config.uploadMode || 'worker', error: this.status.lastError });
       return { uploaded: 0, changed: 0 };
     }
     this.uploadBusy = true;
@@ -777,9 +944,17 @@ class CommunityItemSync {
       const batchSize = options.full ? maxItems : Math.max(1, Math.min(500, Number(this.config.batchSize || 100)));
       const batch = changes.slice(0, batchSize);
       this.status.lastChangedCount = changes.length;
+      appendSyncLog(this.config, 'items', 'upload_start', {
+        mode: this.config.uploadMode || 'worker',
+        endpoint: this.config.uploadMode === 'r2' ? this.config.r2?.endpoint || null : this.config.uploadEndpoint || null,
+        changed: changes.length,
+        batch: batch.length,
+        full: Boolean(options.full)
+      });
       if (!batch.length) {
         this.status.lastUploadedCount = 0;
         this.status.lastError = null;
+        appendSyncLog(this.config, 'items', 'upload_complete', { uploaded: 0, changed: 0 });
         return { uploaded: 0, changed: 0 };
       }
       state.installId = state.installId || this.config.installId || crypto.randomUUID();
@@ -796,9 +971,16 @@ class CommunityItemSync {
       this.status.lastUploadedAt = state.lastUploadedAt;
       this.status.lastUploadedCount = batch.length;
       this.status.lastError = null;
+      appendSyncLog(this.config, 'items', 'upload_complete', {
+        uploaded: batch.length,
+        changed: changes.length,
+        key: uploadResult?.key || null,
+        artUploaded: uploadResult?.artUploaded || 0
+      });
       return { uploaded: batch.length, changed: changes.length };
     } catch (error) {
       this.status.lastError = error.message;
+      appendSyncLog(this.config, 'items', 'upload_error', { error: error.message });
       throw error;
     } finally {
       this.uploadBusy = false;
@@ -824,6 +1006,7 @@ module.exports = {
   resolveSecret,
   saveState,
   sha256,
+  appendSyncLog,
   signedR2Fetch,
   signedS3PutRequest
 };

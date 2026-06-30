@@ -3462,6 +3462,7 @@ function createServer(store, options = {}) {
           app: {
             startedAt: options.startedAt
           },
+          pantheon: options.pantheon || null,
           memory: options.memoryStatus || null,
           addonLog: options.addonLogStatus || null,
           entityScanner: options.entityScannerStatus || null,
@@ -3524,6 +3525,27 @@ function createServer(store, options = {}) {
           return;
         }
         options.onCommunityMobsDownload()
+          .then((result) => sendJson(res, 200, { ok: true, ...result }))
+          .catch((error) => sendJson(res, 500, { error: error.message }));
+        return;
+      }
+      if (url.pathname === '/api/mods/select-directory' && req.method === 'POST') {
+        if (typeof options.onSelectPantheonDirectory !== 'function') {
+          sendJson(res, 400, { error: 'Folder selection is not available in this mode.' });
+          return;
+        }
+        options.onSelectPantheonDirectory()
+          .then((result) => sendJson(res, 200, { ok: true, ...result }))
+          .catch((error) => sendJson(res, 500, { error: error.message }));
+        return;
+      }
+      if (url.pathname === '/api/mods/deploy' && req.method === 'POST') {
+        if (typeof options.onDeployAtlasMods !== 'function') {
+          sendJson(res, 400, { error: 'Atlas mod deployment is not available.' });
+          return;
+        }
+        readJsonBody(req)
+          .then((body) => options.onDeployAtlasMods(body))
           .then((result) => sendJson(res, 200, { ok: true, ...result }))
           .catch((error) => sendJson(res, 500, { error: error.message }));
         return;

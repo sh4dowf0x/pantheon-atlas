@@ -24,9 +24,10 @@ const DEFAULT_CONFIG = {
     enabled: true,
     keepMinutes: 60,
     pruneEveryMinutes: 5,
-    walCheckpointEveryMinutes: 5
+    walCheckpointEveryMinutes: 5,
+    compactAfterDeletedRows: 5000
   },
-  pantheon: { processName: 'Pantheon', processId: null },
+  pantheon: { processName: 'Pantheon', processId: null, gamePath: null },
   memory: {
     enabled: false,
     pollEveryMs: 5000,
@@ -74,7 +75,10 @@ const DEFAULT_CONFIG = {
       'entities-live-current.jsonl'
     ),
     pollEveryMs: 1000,
-    readExistingOnStart: false
+    readExistingOnStart: false,
+    entityRepeatMs: 60000,
+    entityMoveDistance: 4,
+    healthRepeatMs: 15000
   },
   lootLogs: {
     enabled: true,

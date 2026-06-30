@@ -695,10 +695,11 @@ function openStore(databasePath) {
       db.exec('PRAGMA wal_checkpoint(TRUNCATE)');
       return Number(packets.changes || 0);
     },
-    prune({ keepMinutes = 60, checkpoint = true } = {}) {
+    prune({ keepMinutes = 60, checkpoint = true, compact = false } = {}) {
       const minutes = Number.isFinite(Number(keepMinutes)) && Number(keepMinutes) > 0 ? Number(keepMinutes) : 60;
       const cutoff = new Date(Date.now() - minutes * 60_000).toISOString();
       const deleted = {};
+      const before = db.prepare('PRAGMA page_count').get()?.page_count || 0;
       db.exec('BEGIN IMMEDIATE');
       try {
         deleted.gameEvents = Number(db.prepare('DELETE FROM game_events WHERE observed_at < ?').run(cutoff).changes || 0);
@@ -711,7 +712,13 @@ function openStore(databasePath) {
         throw error;
       }
       if (checkpoint) db.exec('PRAGMA wal_checkpoint(TRUNCATE)');
-      return { cutoff, keepMinutes: minutes, deleted };
+      let compacted = false;
+      if (compact) {
+        db.exec('VACUUM');
+        compacted = true;
+      }
+      const after = db.prepare('PRAGMA page_count').get()?.page_count || 0;
+      return { cutoff, keepMinutes: minutes, deleted, compacted, pages: { before, after } };
     },
     close() {
       db.close();

@@ -91,7 +91,7 @@ const state = {
 
 const tileImageCache = new Map();
 const RADAR_RANGE_UNITS = 66;
-const MAP_ENTITY_REFRESH_MS = 1_000;
+const MAP_ENTITY_REFRESH_MS = 3_000;
 
 const els = {
   status: document.querySelector('#status'),
@@ -237,6 +237,11 @@ const els = {
   communitySyncCheck: document.querySelector('#community-sync-check'),
   communitySyncNow: document.querySelector('#community-sync-now'),
   communitySyncDetails: document.querySelector('#community-sync-details'),
+  atlasModsState: document.querySelector('#atlas-mods-state'),
+  atlasModsPantheonDir: document.querySelector('#atlas-mods-pantheon-dir'),
+  atlasModsBrowse: document.querySelector('#atlas-mods-browse'),
+  atlasModsDeploy: document.querySelector('#atlas-mods-deploy'),
+  atlasModsDetails: document.querySelector('#atlas-mods-details'),
   unresolvedCount: document.querySelector('#unresolved-count'),
   unresolvedActors: document.querySelector('#unresolved-actors'),
   events: document.querySelector('#events'),
@@ -925,6 +930,19 @@ function renderCommunitySync(status = {}) {
     lastChangedCount: status.lastChangedCount || 0,
     lastUploadedCount: status.lastUploadedCount || 0,
     lastError: lastError || null
+  }, null, 2);
+}
+
+function renderAtlasMods(status = {}) {
+  if (!els.atlasModsDetails) return;
+  const pantheonDir = status.pantheonDir || '';
+  if (els.atlasModsPantheonDir) els.atlasModsPantheonDir.value = pantheonDir;
+  if (els.atlasModsState) els.atlasModsState.textContent = pantheonDir ? 'Ready' : 'Choose folder';
+  if (els.atlasModsDeploy) els.atlasModsDeploy.disabled = !pantheonDir;
+  els.atlasModsDetails.textContent = JSON.stringify({
+    requiredMods: ['PantheonCombatDataMod.zip', 'PantheonEntityScannerMod.zip', 'PantheonLootDataMod.zip'],
+    pantheonDir: pantheonDir || null,
+    latestRelease: 'https://github.com/sh4dowf0x/pantheon-mods/releases/latest'
   }, null, 2);
 }
 
@@ -2588,7 +2606,7 @@ async function refreshMapEntities(force = false) {
   if (!force && Date.now() - Number(state.mapEntitiesFetchedAt || 0) < MAP_ENTITY_REFRESH_MS) return;
   state.mapEntityRefreshInFlight = true;
   try {
-    const entityParams = recentMapParams({ limit: '500' }, 10 * 60_000);
+    const entityParams = recentMapParams({ limit: '300' }, 3 * 60_000);
     const entityData = await fetchJson(`/api/map/entities?${entityParams}`);
     state.mapEntities = entityData.rows || [];
     state.mapEntitiesFetchedAt = Date.now();
@@ -3391,6 +3409,7 @@ async function refreshDiagnostics() {
 async function refreshSettings() {
   const status = await fetchJson(`/api/status?${displayParams()}`);
   renderCommunitySync(status.communityItems || {});
+  renderAtlasMods({ pantheonDir: status.pantheon?.gamePath || '' });
 }
 
 async function refresh() {
@@ -3681,6 +3700,54 @@ if (els.communitySyncNow) {
       els.status.classList.add('error');
     } finally {
       els.communitySyncNow.disabled = !els.communitySyncEnabled.checked || !els.communitySyncUpload.checked;
+    }
+  });
+}
+
+if (els.atlasModsBrowse) {
+  els.atlasModsBrowse.addEventListener('click', async () => {
+    try {
+      els.atlasModsBrowse.disabled = true;
+      const result = await postJson('/api/mods/select-directory', {});
+      if (result.pantheonDir) {
+        renderAtlasMods({ pantheonDir: result.pantheonDir });
+        els.status.textContent = 'Pantheon folder selected.';
+        els.status.classList.remove('error');
+      }
+    } catch (error) {
+      els.status.textContent = `Atlas mods error: ${error.message}`;
+      els.status.classList.add('error');
+    } finally {
+      els.atlasModsBrowse.disabled = false;
+    }
+  });
+}
+
+if (els.atlasModsDeploy) {
+  els.atlasModsDeploy.addEventListener('click', async () => {
+    try {
+      const pantheonDir = els.atlasModsPantheonDir.value.trim();
+      if (!pantheonDir) throw new Error('Choose the Pantheon game folder first.');
+      els.atlasModsDeploy.disabled = true;
+      if (els.atlasModsState) els.atlasModsState.textContent = 'Deploying...';
+      els.status.textContent = 'Deploying Atlas mods...';
+      els.status.classList.remove('error');
+      const result = await postJson('/api/mods/deploy', { pantheonDir });
+      renderAtlasMods({ pantheonDir: result.pantheonDir || pantheonDir });
+      if (els.atlasModsState) els.atlasModsState.textContent = result.releaseTag ? `Installed ${result.releaseTag}` : 'Installed';
+      if (els.atlasModsDetails) els.atlasModsDetails.textContent = JSON.stringify({
+        pantheonDir: result.pantheonDir || pantheonDir,
+        releaseTag: result.releaseTag || null,
+        installed: result.installed || [],
+        installedAt: result.installedAt || null
+      }, null, 2);
+      els.status.textContent = `Atlas mods deployed: ${(result.installed || []).map((name) => name.replace(/^Pantheon|Mod\.zip$/g, '')).join(', ') || 'complete'}.`;
+    } catch (error) {
+      els.status.textContent = `Atlas mods error: ${error.message}`;
+      els.status.classList.add('error');
+      if (els.atlasModsState) els.atlasModsState.textContent = 'Deploy failed';
+    } finally {
+      els.atlasModsDeploy.disabled = !els.atlasModsPantheonDir.value.trim();
     }
   });
 }

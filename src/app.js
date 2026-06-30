@@ -8,6 +8,7 @@ const { EntityScannerLogIngestor } = require('./entityScannerLog');
 const { LootLogIngestor } = require('./lootLog');
 const { CommunityItemSync } = require('./itemSync');
 const { CommunityMobSync } = require('./mobSync');
+const { deployAtlasMods } = require('./modDeploy');
 const { sampleProcessMemoryStrings } = require('./memoryProbe');
 const { openStore } = require('./store');
 const { startDashboard } = require('./dashboard');
@@ -273,7 +274,7 @@ function seedWorldEntities(store, parserContext, limit = 5000) {
   return count;
 }
 
-async function runApp(argv = process.argv) {
+async function runApp(argv = process.argv, options = {}) {
   const args = parseArgs(argv);
   const config = readConfig(args.configPath);
   if (config.communityMobs && config.communityItems) {
@@ -326,17 +327,66 @@ async function runApp(argv = process.argv) {
     nextAddress: 0,
     lastError: null
   };
+  const persistPantheonGamePath = (gamePath) => {
+    if (!gamePath) return;
+    config.pantheon = { ...(config.pantheon || {}), gamePath };
+    try {
+      const fileConfig = fs.existsSync(args.configPath)
+        ? JSON.parse(fs.readFileSync(args.configPath, 'utf8'))
+        : {};
+      fileConfig.pantheon = {
+        ...(fileConfig.pantheon || {}),
+        gamePath
+      };
+      writeJsonFile(args.configPath, fileConfig);
+    } catch (error) {
+      console.error(`Pantheon game path save failed: ${error.message}`);
+      throw error;
+    }
+  };
+  const selectPantheonDirectory = async () => {
+    if (typeof options.onSelectPantheonDirectory !== 'function') {
+      return { canceled: true, pantheonDir: config.pantheon?.gamePath || null };
+    }
+    const result = await options.onSelectPantheonDirectory({
+      defaultPath: config.pantheon?.gamePath || null
+    });
+    if (result?.pantheonDir) persistPantheonGamePath(result.pantheonDir);
+    return {
+      canceled: Boolean(result?.canceled),
+      pantheonDir: result?.pantheonDir || config.pantheon?.gamePath || null
+    };
+  };
+  const deployAtlasRequiredMods = async (body = {}) => {
+    const pantheonDir = String(body.pantheonDir || config.pantheon?.gamePath || '').trim();
+    const result = await deployAtlasMods({ pantheonDir });
+    persistPantheonGamePath(result.pantheonDir);
+    return result;
+  };
   const runRetentionPrune = () => {
     const retention = config.retention || {};
     if (!retention.enabled) return;
     try {
+      const compactAfterDeletedRows = Math.max(0, Number(retention.compactAfterDeletedRows || 0));
+      const cutoff = new Date(Date.now() - (Number(retention.keepMinutes) || 60) * 60_000).toISOString();
+      const oldRows = compactAfterDeletedRows
+        ? Number(store.db.prepare(`
+          SELECT
+            (SELECT COUNT(*) FROM game_events WHERE observed_at < ?) +
+            (SELECT COUNT(*) FROM decoded_messages WHERE observed_at < ?) +
+            (SELECT COUNT(*) FROM memory_observations WHERE observed_at < ?) +
+            (SELECT COUNT(*) FROM raw_packets WHERE captured_at < ?) AS count
+        `).get(cutoff, cutoff, cutoff, cutoff)?.count || 0)
+        : 0;
       const result = store.prune({
         keepMinutes: retention.keepMinutes,
-        checkpoint: true
+        checkpoint: true,
+        compact: compactAfterDeletedRows > 0 && oldRows >= compactAfterDeletedRows
       });
       const deletedCount = Object.values(result.deleted).reduce((sum, value) => sum + Number(value || 0), 0);
       if (deletedCount) {
-        console.log(`Pruned ${deletedCount} old rows before ${result.cutoff}.`);
+        const compactNote = result.compacted ? ` Compacted SQLite pages ${result.pages.before} -> ${result.pages.after}.` : '';
+        console.log(`Pruned ${deletedCount} old rows before ${result.cutoff}.${compactNote}`);
       }
     } catch (error) {
       console.error(`Retention prune failed: ${error.message}`);
@@ -685,6 +735,9 @@ async function runApp(argv = process.argv) {
   server = startDashboard(store, {
     port: config.server.port,
     startedAt,
+    pantheon: {
+      gamePath: config.pantheon?.gamePath || null
+    },
     getLivePositions,
     localPlayerName: configuredLocalPlayerName,
     memoryStatus: memoryProbeState,
@@ -698,6 +751,8 @@ async function runApp(argv = process.argv) {
     onCommunityItemsDownload: downloadCommunityItemsNow,
     onCommunityMobsUpload: uploadCommunityMobsNow,
     onCommunityMobsDownload: downloadCommunityMobsNow,
+    onSelectPantheonDirectory: selectPantheonDirectory,
+    onDeployAtlasMods: deployAtlasRequiredMods,
     onRestart: () => shutdown(true)
   });
 

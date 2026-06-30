@@ -4,6 +4,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { parseLootLogLine } = require('../src/lootLog');
 const { getLootItemDetail, getLootSummary } = require('../src/dashboard');
+const { itemArtCachePath } = require('../src/itemArt');
 const { openStore } = require('../src/store');
 
 const lootLine = JSON.stringify({
@@ -54,6 +55,48 @@ assert.equal(parsed.item.requiredLevel, 19);
 assert.equal(JSON.parse(parsed.item.flagsJson).includes('Magic'), true);
 assert.equal(parsed.instance.slotType, 'Equipped');
 assert.equal(parsed.event.itemName, 'Shadesilk Mask');
+
+const iconDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-loot-icons-test-'));
+fs.mkdirSync(path.join(iconDir, 'icons'), { recursive: true });
+const iconBytes = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
+fs.writeFileSync(path.join(iconDir, 'icons', 'Test_Icon_abcd1234.png'), iconBytes);
+const iconLine = JSON.stringify({
+  timestamp: '2026-06-18T04:21:04.7476129-07:00',
+  eventType: 'inventory_snapshot',
+  character: 'Nexee',
+  itemInstanceId: 'icon-instance-1',
+  itemName: 'Icon Export Helm',
+  icon: {
+    iconKey: 'Test_Icon',
+    iconFile: 'icons\\Test_Icon_abcd1234.png',
+    exportStatus: 'exported',
+    width: 128,
+    height: 128
+  },
+  item: {
+    InstanceId: 'icon-instance-1',
+    ItemId: 9001,
+    Name: 'Icon Export Helm',
+    StackSize: 1,
+    SlotType: 'Inventory',
+    SlotIndex: 0,
+    Template: {
+      itemId: '9001',
+      itemName: 'Icon Export Helm',
+      iconKey: 'Test_Icon',
+      itemType: 'Armor',
+      rarity: 'Rare'
+    }
+  }
+});
+const parsedIcon = parseLootLogLine(iconLine, { iconBaseDir: iconDir });
+const parsedIconTemplate = JSON.parse(parsedIcon.item.templateJson);
+assert.equal(parsedIconTemplate.iconKey, 'Test_Icon');
+assert.equal(parsedIconTemplate.artSource, 'lootdata');
+assert.match(parsedIconTemplate.artUrl, /^atlas-item-icon:\/\//);
+assert.equal(parsedIconTemplate.iconWidth, 128);
+assert.equal(fs.readFileSync(itemArtCachePath(parsedIconTemplate.artUrl)).length, iconBytes.length);
+fs.rmSync(iconDir, { recursive: true, force: true });
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-loot-test-'));
 const store = openStore(path.join(tempDir, 'test.sqlite'));
@@ -257,6 +300,12 @@ assert.equal(wolfFang.events[0].source, 'black roan wolf (rabid)');
 assert.equal(wolfFang.events[0].acquisition.method, 'recent_offensive_target');
 assert.equal(wolfFang.events[0].acquisition.confidence, 'low');
 assert.equal(wolfFang.events[0].acquisition.source.name, 'black roan wolf (rabid)');
+assert.equal(wolfFang.dropSources[0].name, 'black roan wolf (rabid)');
+assert.equal(wolfFang.dropSources[0].count, 1);
+assert.deepEqual(wolfFang.dropSources[0].methods, ['recent_offensive_target']);
+assert.deepEqual(wolfFang.dropSources[0].confidences, ['low']);
+assert.equal(wolfFang.dropSources[0].x, 2753.6104);
+assert.equal(wolfFang.dropSources[0].z, 2235.0076);
 
 store.close();
 fs.rmSync(tempDir, { recursive: true, force: true });

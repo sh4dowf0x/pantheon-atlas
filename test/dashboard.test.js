@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { getAbilityRegistry, getEncounterReport, getHealingSummary, getLatestMapState, getLatestPositions, getMapCalibrationSamples, getMapCalibrationSummary, getMapEntityRows, getParserAbilityEvents, getParserSummary, getPositionRows, getRespawnDeathRows, getXpSummary, goblinLayerForY, inferLocalPlayerLevel, insertMapCalibrationSample, mapCalibrationLayerKeyForLabel, mapKeyForCoordinates, mapKeyForCoordinatesWithCalibration, mapKeyForZoneName } = require('../src/dashboard');
+const { getAbilityRegistry, getEncounterReport, getHealingSummary, getLatestMapState, getLatestPositions, getMapCalibrationSamples, getMapCalibrationSummary, getMapEntityRows, getMobDetail, getMobSummary, getParserAbilityEvents, getParserSummary, getPositionRows, getRespawnDeathRows, getXpSummary, goblinLayerForY, inferLocalPlayerLevel, insertMapCalibrationSample, mapCalibrationLayerKeyForLabel, mapKeyForCoordinates, mapKeyForCoordinatesWithCalibration, mapKeyForZoneName } = require('../src/dashboard');
 const { openStore } = require('../src/store');
 
 assert.equal(mapKeyForZoneName("Wild's End"), 'kingsreach');
@@ -140,6 +140,8 @@ store.insertEvent({
 });
 const respawnDeaths = getRespawnDeathRows(store.db, 300);
 assert.equal(respawnDeaths.rows[0].target, 'Larcs the Weaponsmith');
+assert.equal(respawnDeaths.rows[0].namedMob.name, 'Larcs the Weaponsmith');
+assert.equal(respawnDeaths.rows[0].namedMob.location, 'Gadai Camps');
 assert.ok(respawnDeaths.rows.some((row) => row.eventType === 'kill'));
 
 const goblinStateDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-goblin-map-state-test-'));
@@ -1194,6 +1196,20 @@ store.insertEvent({
   observedAt: new Date().toISOString(),
   eventType: 'world_entity',
   source: 'Player',
+  target: 'Corroded Key',
+  ability: 'entityKind:mob',
+  amount: 0,
+  damageType: '84080002',
+  x: 3032.901,
+  y: 490.442,
+  z: -3692.801,
+  rawText: 'Corroded Key | GroundSpawn',
+  eventKey: 'corroded-key-quest-test'
+});
+store.insertEvent({
+  observedAt: new Date().toISOString(),
+  eventType: 'world_entity',
+  source: 'Player',
   target: 'Krex',
   ability: 'entityKind:mob',
   amount: 1,
@@ -1330,6 +1346,37 @@ store.insertEvent({
   rawText: 'Vaelris the Deadheart is prepared to attack you. This would be a great challenge.',
   eventKey: 'vaelris-priority-test'
 });
+store.insertEvent({
+  observedAt: new Date().toISOString(),
+  eventType: 'damage_estimate',
+  source: 'Vaelris the Deadheart',
+  target: 'Nexerin',
+  ability: 'Grave Hex',
+  amount: 18,
+  damageType: 'Magic',
+  rawText: 'Vaelris the Deadheart dealt 18 Magic damage to Nexerin with Grave Hex.',
+  eventKey: 'vaelris-grave-hex-test'
+});
+store.insertLootEvent({
+  observedAt: new Date().toISOString(),
+  eventType: 'item_added',
+  character: 'Nexerin',
+  characterId: 3950,
+  itemInstanceId: 'vaelris-drop-instance',
+  itemId: '99901',
+  itemName: 'Deadheart Charm',
+  source: 'Vaelris the Deadheart',
+  quantity: 1,
+  rawJson: JSON.stringify({
+    eventType: 'item_added',
+    acquisition: {
+      method: 'recent_offensive_target',
+      confidence: 'medium',
+      source: { name: 'Vaelris the Deadheart', level: 12, x: 4052.646, y: 466.562, z: -2238.157 }
+    }
+  }),
+  eventKey: 'vaelris-drop-test'
+});
 const petMapRows = getMapEntityRows(store.db, 200);
 const stoneFragmentRow = petMapRows.find((row) => row.name === 'Ghaldassii Stone Fragment');
 assert.equal(stoneFragmentRow.kind, 'quest');
@@ -1340,6 +1387,9 @@ assert.equal(toenailRow.questItem, true);
 const satchelRow = petMapRows.find((row) => row.name === 'Dusty Satchel');
 assert.equal(satchelRow.kind, 'quest');
 assert.equal(satchelRow.questItem, true);
+const corrodedKeyRow = petMapRows.find((row) => row.name === 'Corroded Key');
+assert.equal(corrodedKeyRow.kind, 'quest');
+assert.equal(corrodedKeyRow.questItem, true);
 const lockBoxRow = petMapRows.find((row) => row.name === "Ringleader's Lock Box");
 assert.equal(lockBoxRow.kind, 'chest');
 assert.equal(lockBoxRow.questItem, false);
@@ -1365,6 +1415,81 @@ const brineclawRow = petMapRows.find((row) => row.name === 'brineclaw net-weaver
 assert.equal(brineclawRow.disposition, 'prepared to attack');
 const vaelrisRow = petMapRows.find((row) => row.entityId === '76770000');
 assert.equal(vaelrisRow.priorityCandidate, true);
+
+store.insertEvent({
+  observedAt: new Date().toISOString(),
+  eventType: 'world_entity',
+  source: 'EntityScanner',
+  target: 'Hssyr the Wretch',
+  ability: 'entityKind:mob',
+  amount: 15,
+  damageType: 'hssyr10000',
+  x: 38,
+  y: 21,
+  z: 0,
+  rawText: '[EntityScanner] Hssyr the Wretch',
+  eventKey: 'known-named-hssyr-test'
+});
+const knownNamedSummary = getMobSummary(store.db, { search: 'Hssyr' });
+assert.equal(knownNamedSummary.rows[0].name, 'Hssyr the Wretch');
+assert.equal(knownNamedSummary.rows[0].named, true);
+assert.equal(knownNamedSummary.rows[0].namedName, 'Hssyr the Wretch');
+assert.equal(knownNamedSummary.rows[0].zoneName, 'Halnir Cave');
+const knownNamedDetail = getMobDetail(store.db, 'Hssyr the Wretch');
+assert.equal(knownNamedDetail.named, true);
+assert.equal(knownNamedDetail.location, 'Halnir Cave');
+store.db.prepare(`
+  INSERT INTO community_mobs (
+    key, name, normalized_name, payload_json, source_install_id, first_seen, last_seen, updated_at
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(key) DO UPDATE SET payload_json = excluded.payload_json, updated_at = excluded.updated_at
+`).run(
+  'bloodsick hulk',
+  'Bloodsick Hulk',
+  'bloodsick hulk',
+  JSON.stringify({
+    key: 'bloodsick hulk',
+    name: 'Bloodsick Hulk',
+    named: true,
+    location: 'Halnir Cave Dungeon',
+    zoneName: "Avendyr's Pass",
+    levelMin: 18,
+    levelMax: 18,
+    lastLocation: { x: 0, y: 0, z: 0, observedAt: new Date().toISOString() }
+  }),
+  'test',
+  new Date().toISOString(),
+  new Date().toISOString(),
+  new Date().toISOString()
+);
+const zeroLocationMob = getMobDetail(store.db, 'Bloodsick Hulk', { force: true });
+assert.equal(zeroLocationMob.location, 'Halnir Cave Dungeon');
+assert.equal(zeroLocationMob.zoneName, 'Halnir Cave Dungeon');
+assert.equal(zeroLocationMob.lastLocation, null);
+assert.equal(zeroLocationMob.locationHistory.length, 0);
+
+store.db.prepare(`
+  UPDATE named_mobs
+  SET location = ?, zone = ?, level_min = ?, level_max = ?
+  WHERE shalazam_id = ?
+`).run('Deadheart clearing', 'Wilds End', 12, 14, 117);
+
+const mobSummary = getMobSummary(store.db, { search: 'Vaelris', force: true });
+assert.equal(mobSummary.rows[0].name, 'Vaelris the Deadheart');
+assert.equal(mobSummary.rows[0].abilityCount, 1);
+assert.equal(mobSummary.rows[0].dropCount, 1);
+assert.equal(mobSummary.rows[0].dropEventCount, 1);
+assert.equal(mobSummary.rows[0].named, true);
+assert.equal(mobSummary.rows[0].zoneName, 'Deadheart clearing');
+assert.ok(mobSummary.locations.some((row) => row.name === 'Deadheart clearing'));
+const namedMobSummary = getMobSummary(store.db, { named: 'named', location: 'Deadheart clearing', minLevel: '1', maxLevel: '99', force: true });
+assert.ok(namedMobSummary.rows.some((row) => row.name === 'Vaelris the Deadheart'));
+const mobDetail = getMobDetail(store.db, 'Vaelris the Deadheart', { force: true });
+assert.equal(mobDetail.named, true);
+assert.equal(mobDetail.location, 'Deadheart clearing');
+assert.equal(mobDetail.abilities[0].ability, 'Grave Hex');
+assert.equal(mobDetail.drops[0].name, 'Deadheart Charm');
+assert.equal(mobDetail.lastLocation.x, 4052.646);
 
 const petSummary = getParserSummary(store.db, 300);
 const zotik = petSummary.combatants.find((row) => row.source === "Nexendia's Minion");

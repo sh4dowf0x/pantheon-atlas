@@ -7,12 +7,31 @@ const { AddonLogIngestor } = require('./addonLog');
 const { EntityScannerLogIngestor } = require('./entityScannerLog');
 const { LootLogIngestor } = require('./lootLog');
 const { CommunityItemSync } = require('./itemSync');
+const { CommunityMobSync } = require('./mobSync');
+const { deployAtlasMods } = require('./modDeploy');
 const { sampleProcessMemoryStrings } = require('./memoryProbe');
 const { openStore } = require('./store');
 const { startDashboard } = require('./dashboard');
 
 function writeJsonFile(filePath, value) {
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+function siblingUploadEndpoint(uploadEndpoint, leaf) {
+  if (!uploadEndpoint) return '';
+  try {
+    const url = new URL(uploadEndpoint);
+    const parts = url.pathname.split('/').filter(Boolean);
+    if (parts.length && ['items', 'mobs', 'icons'].includes(parts[parts.length - 1])) {
+      parts[parts.length - 1] = leaf;
+    } else {
+      parts.push(leaf);
+    }
+    url.pathname = `/${parts.join('/')}`;
+    return url.toString();
+  } catch {
+    return '';
+  }
 }
 
 function parseArgs(argv = process.argv) {
@@ -40,13 +59,20 @@ function sanitizeCharacterName(value) {
   return name.replace(/[<>:"/\\|?*\x00-\x1F]/g, '').trim() || null;
 }
 
+function canonicalCharacterLogName(value) {
+  const name = sanitizeCharacterName(value);
+  if (!name) return null;
+  return name.toLowerCase() === 'current' ? 'Current' : name;
+}
+
 function characterLogPath(existingPath, filePrefix, characterName, fallbackDir) {
-  const safeName = sanitizeCharacterName(characterName);
+  const safeName = canonicalCharacterLogName(characterName);
   if (!safeName) return existingPath;
+  const fileName = safeName.toLowerCase() === 'current' ? 'current' : safeName;
   const current = String(existingPath || '');
-  if (current.includes('{character}')) return current.replace(/\{character\}/g, safeName);
+  if (current.includes('{character}')) return current.replace(/\{character\}/g, fileName);
   const dir = current ? path.dirname(current) : fallbackDir;
-  return path.join(dir, `${filePrefix}-${safeName}.jsonl`);
+  return path.join(dir, `${filePrefix}-${fileName}.jsonl`);
 }
 
 function logDirectory(filePath, fallbackDir) {
@@ -62,8 +88,8 @@ function discoverCharactersInDirectory(dir, pattern) {
       .map((entry) => {
         const match = entry.name.match(pattern);
         if (!match) return null;
-        const name = sanitizeCharacterName(match[1]);
-        if (!name || name.toLowerCase() === 'current') return null;
+        const name = canonicalCharacterLogName(match[1]);
+        if (!name) return null;
         const stat = fs.statSync(path.join(dir, entry.name));
         return {
           name,
@@ -112,10 +138,10 @@ function promptLine(question, input = process.stdin, output = process.stdout) {
 }
 
 async function chooseCharacter(config, options = {}) {
-  const explicit = sanitizeCharacterName(options.character || process.env.PANTHEON_CHARACTER);
+  const explicit = canonicalCharacterLogName(options.character || process.env.PANTHEON_CHARACTER);
   if (explicit) return explicit;
   const choices = discoverCharacterLogChoices(config);
-  const configured = sanitizeCharacterName(config.pantheon?.localPlayerName);
+  const configured = canonicalCharacterLogName(config.pantheon?.localPlayerName);
   if (!choices.length) return configured;
   if (!options.input?.isTTY && options.input !== undefined) return configured || choices[0].name;
   const input = options.input || process.stdin;
@@ -141,11 +167,11 @@ async function chooseCharacter(config, options = {}) {
   const numeric = Number(answer);
   if (Number.isInteger(numeric) && numeric >= 1 && numeric <= choices.length) return choices[numeric - 1].name;
   const named = choices.find((choice) => choice.name.toLowerCase() === answer.toLowerCase());
-  return named ? named.name : sanitizeCharacterName(answer) || fallback.name;
+  return named ? named.name : canonicalCharacterLogName(answer) || fallback.name;
 }
 
 function applyCharacterSelection(config, requestedCharacter = null) {
-  const character = sanitizeCharacterName(
+  const character = canonicalCharacterLogName(
     requestedCharacter
     || process.env.PANTHEON_CHARACTER
     || config.pantheon?.localPlayerName
@@ -248,9 +274,22 @@ function seedWorldEntities(store, parserContext, limit = 5000) {
   return count;
 }
 
-async function runApp(argv = process.argv) {
+async function runApp(argv = process.argv, options = {}) {
   const args = parseArgs(argv);
   const config = readConfig(args.configPath);
+  if (config.communityMobs && config.communityItems) {
+    config.communityMobs.r2 = {
+      ...(config.communityItems.r2 || {}),
+      ...(config.communityMobs.r2 || {})
+    };
+    if (config.communityItems.uploadEnabled && config.communityMobs.uploadEnabled === false) {
+      config.communityMobs.uploadEnabled = true;
+    }
+    if (config.communityItems.uploadMode && !config.communityMobs.uploadMode) {
+      config.communityMobs.uploadMode = config.communityItems.uploadMode;
+    }
+    if (config.communityItems.uploadEndpoint && !config.communityMobs.uploadEndpoint) config.communityMobs.uploadEndpoint = siblingUploadEndpoint(config.communityItems.uploadEndpoint, 'mobs');
+  }
   if (args.port) config.server.port = args.port;
   if (args.pid) config.pantheon.processId = args.pid;
   const selectedCharacter = await chooseCharacter(config, { character: args.character });
@@ -272,6 +311,7 @@ async function runApp(argv = process.argv) {
   let entityScannerLogIngestor = null;
   let lootLogIngestor = null;
   let communityItemSync = null;
+  let communityMobSync = null;
   let server = null;
   let retentionTimer = null;
   let memoryTimer = null;
@@ -287,17 +327,66 @@ async function runApp(argv = process.argv) {
     nextAddress: 0,
     lastError: null
   };
+  const persistPantheonGamePath = (gamePath) => {
+    if (!gamePath) return;
+    config.pantheon = { ...(config.pantheon || {}), gamePath };
+    try {
+      const fileConfig = fs.existsSync(args.configPath)
+        ? JSON.parse(fs.readFileSync(args.configPath, 'utf8'))
+        : {};
+      fileConfig.pantheon = {
+        ...(fileConfig.pantheon || {}),
+        gamePath
+      };
+      writeJsonFile(args.configPath, fileConfig);
+    } catch (error) {
+      console.error(`Pantheon game path save failed: ${error.message}`);
+      throw error;
+    }
+  };
+  const selectPantheonDirectory = async () => {
+    if (typeof options.onSelectPantheonDirectory !== 'function') {
+      return { canceled: true, pantheonDir: config.pantheon?.gamePath || null };
+    }
+    const result = await options.onSelectPantheonDirectory({
+      defaultPath: config.pantheon?.gamePath || null
+    });
+    if (result?.pantheonDir) persistPantheonGamePath(result.pantheonDir);
+    return {
+      canceled: Boolean(result?.canceled),
+      pantheonDir: result?.pantheonDir || config.pantheon?.gamePath || null
+    };
+  };
+  const deployAtlasRequiredMods = async (body = {}) => {
+    const pantheonDir = String(body.pantheonDir || config.pantheon?.gamePath || '').trim();
+    const result = await deployAtlasMods({ pantheonDir });
+    persistPantheonGamePath(result.pantheonDir);
+    return result;
+  };
   const runRetentionPrune = () => {
     const retention = config.retention || {};
     if (!retention.enabled) return;
     try {
+      const compactAfterDeletedRows = Math.max(0, Number(retention.compactAfterDeletedRows || 0));
+      const cutoff = new Date(Date.now() - (Number(retention.keepMinutes) || 60) * 60_000).toISOString();
+      const oldRows = compactAfterDeletedRows
+        ? Number(store.db.prepare(`
+          SELECT
+            (SELECT COUNT(*) FROM game_events WHERE observed_at < ?) +
+            (SELECT COUNT(*) FROM decoded_messages WHERE observed_at < ?) +
+            (SELECT COUNT(*) FROM memory_observations WHERE observed_at < ?) +
+            (SELECT COUNT(*) FROM raw_packets WHERE captured_at < ?) AS count
+        `).get(cutoff, cutoff, cutoff, cutoff)?.count || 0)
+        : 0;
       const result = store.prune({
         keepMinutes: retention.keepMinutes,
-        checkpoint: true
+        checkpoint: true,
+        compact: compactAfterDeletedRows > 0 && oldRows >= compactAfterDeletedRows
       });
       const deletedCount = Object.values(result.deleted).reduce((sum, value) => sum + Number(value || 0), 0);
       if (deletedCount) {
-        console.log(`Pruned ${deletedCount} old rows before ${result.cutoff}.`);
+        const compactNote = result.compacted ? ` Compacted SQLite pages ${result.pages.before} -> ${result.pages.after}.` : '';
+        console.log(`Pruned ${deletedCount} old rows before ${result.cutoff}.${compactNote}`);
       }
     } catch (error) {
       console.error(`Retention prune failed: ${error.message}`);
@@ -384,6 +473,8 @@ async function runApp(argv = process.argv) {
     ),
     publicBaseUrl: config.communityItems?.publicBaseUrl || null,
     manifestUrl: config.communityItems?.manifestUrl || null,
+    downloadEveryMinutes: Number(config.communityItems?.downloadEveryMinutes || 60) || 60,
+    uploadEveryMinutes: Number(config.communityItems?.uploadEveryMinutes || 30) || 30,
     lastCheckedAt: null,
     lastDownloadedAt: null,
     lastUploadedAt: null,
@@ -391,6 +482,26 @@ async function runApp(argv = process.argv) {
     lastChangedCount: 0,
     lastUploadedCount: 0,
     lastError: config.communityItems?.enabled ? null : 'Community item sync is disabled.'
+  };
+  const communityMobStatus = () => communityMobSync?.status || {
+    enabled: Boolean(config.communityMobs?.enabled),
+    downloadEnabled: config.communityMobs?.downloadEnabled !== false,
+    uploadEnabled: Boolean(config.communityMobs?.uploadEnabled),
+    uploadMode: config.communityMobs?.uploadMode || 'worker',
+    uploadEndpoint: config.communityMobs?.uploadEndpoint || null,
+    bucket: config.communityMobs?.r2?.bucket || null,
+    r2Endpoint: config.communityMobs?.r2?.endpoint || null,
+    publicBaseUrl: config.communityMobs?.publicBaseUrl || null,
+    manifestUrl: config.communityMobs?.manifestUrl || null,
+    downloadEveryMinutes: Number(config.communityMobs?.downloadEveryMinutes || 60) || 60,
+    uploadEveryMinutes: Number(config.communityMobs?.uploadEveryMinutes || 30) || 30,
+    lastCheckedAt: null,
+    lastDownloadedAt: null,
+    lastUploadedAt: null,
+    lastDownloadedCount: 0,
+    lastChangedCount: 0,
+    lastUploadedCount: 0,
+    lastError: config.communityMobs?.enabled ? null : 'Community mob sync is disabled.'
   };
   const persistCommunityItemConfig = () => {
     try {
@@ -405,6 +516,16 @@ async function runApp(argv = process.argv) {
           ...(config.communityItems?.r2 || {})
         }
       };
+      if (config.communityMobs) {
+        fileConfig.communityMobs = {
+          ...(fileConfig.communityMobs || {}),
+          ...(config.communityMobs || {}),
+          r2: {
+            ...(fileConfig.communityMobs?.r2 || {}),
+            ...(config.communityMobs?.r2 || {})
+          }
+        };
+      }
       writeJsonFile(args.configPath, fileConfig);
     } catch (error) {
       console.error(`Community item config save failed: ${error.message}`);
@@ -425,6 +546,9 @@ async function runApp(argv = process.argv) {
     if (patch.downloadEnabled !== undefined) next.downloadEnabled = Boolean(patch.downloadEnabled);
     if (patch.uploadEnabled !== undefined) next.uploadEnabled = Boolean(patch.uploadEnabled);
     if (patch.uploadMode) next.uploadMode = String(patch.uploadMode);
+    if (patch.uploadEndpoint !== undefined) next.uploadEndpoint = String(patch.uploadEndpoint || '').trim();
+    if (patch.downloadEveryMinutes !== undefined) next.downloadEveryMinutes = Math.max(1, Math.min(1440, Number(patch.downloadEveryMinutes) || 60));
+    if (patch.uploadEveryMinutes !== undefined) next.uploadEveryMinutes = Math.max(1, Math.min(1440, Number(patch.uploadEveryMinutes) || 30));
     if (patch.r2 && typeof patch.r2 === 'object') {
       next.r2 = { ...(next.r2 || {}) };
       if (patch.r2.accessKeyId) next.r2.accessKeyId = String(patch.r2.accessKeyId).trim();
@@ -435,6 +559,11 @@ async function runApp(argv = process.argv) {
       }
     }
     config.communityItems = next;
+    config.communityMobs = {
+      ...(config.communityMobs || {}),
+      uploadMode: next.uploadMode,
+      uploadEndpoint: next.uploadEndpoint ? siblingUploadEndpoint(next.uploadEndpoint, 'mobs') : ''
+    };
     if (communityItemSync) {
       communityItemSync.stop();
       communityItemSync = null;
@@ -443,10 +572,10 @@ async function runApp(argv = process.argv) {
     persistCommunityItemConfig();
     return communityItemStatus();
   };
-  const uploadCommunityItemsNow = async () => {
+  const uploadCommunityItemsNow = async (options = {}) => {
     const sync = ensureCommunityItemSync();
     if (!sync) return { uploaded: 0, changed: 0, status: communityItemStatus() };
-    const result = await sync.uploadChangedItems();
+    const result = await sync.uploadChangedItems(options);
     return { ...result, status: communityItemStatus() };
   };
   const downloadCommunityItemsNow = async () => {
@@ -454,6 +583,26 @@ async function runApp(argv = process.argv) {
     if (!sync) return { downloaded: 0, imported: 0, status: communityItemStatus() };
     const result = await sync.downloadCommunityItems();
     return { ...result, status: communityItemStatus() };
+  };
+  const ensureCommunityMobSync = () => {
+    if (communityMobSync || !config.communityMobs?.enabled) return communityMobSync;
+    communityMobSync = new CommunityMobSync(config.communityMobs, store, {
+      atlasVersion: require('../package.json').version
+    });
+    communityMobSync.start();
+    return communityMobSync;
+  };
+  const uploadCommunityMobsNow = async (options = {}) => {
+    const sync = ensureCommunityMobSync();
+    if (!sync) return { uploaded: 0, changed: 0, status: communityMobStatus() };
+    const result = await sync.uploadChangedMobs(options);
+    return { ...result, status: communityMobStatus() };
+  };
+  const downloadCommunityMobsNow = async () => {
+    const sync = ensureCommunityMobSync();
+    if (!sync) return { downloaded: 0, imported: 0, status: communityMobStatus() };
+    const result = await sync.downloadCommunityMobs();
+    return { ...result, status: communityMobStatus() };
   };
   const livePositionTrail = [];
   const liveLatestPositions = new Map();
@@ -542,6 +691,7 @@ async function runApp(argv = process.argv) {
     if (entityScannerLogIngestor) entityScannerLogIngestor.stop();
     if (lootLogIngestor) lootLogIngestor.stop();
     if (communityItemSync) communityItemSync.stop();
+    if (communityMobSync) communityMobSync.stop();
     const finalize = () => {
       try {
         store.close();
@@ -580,10 +730,14 @@ async function runApp(argv = process.argv) {
     lootLogIngestor.start();
   }
   ensureCommunityItemSync();
+  ensureCommunityMobSync();
 
   server = startDashboard(store, {
     port: config.server.port,
     startedAt,
+    pantheon: {
+      gamePath: config.pantheon?.gamePath || null
+    },
     getLivePositions,
     localPlayerName: configuredLocalPlayerName,
     memoryStatus: memoryProbeState,
@@ -591,9 +745,14 @@ async function runApp(argv = process.argv) {
     entityScannerStatus: entityScannerLogIngestor?.status || null,
     lootLogStatus: lootLogIngestor?.status || null,
     communityItemStatus,
+    communityMobStatus,
     onCommunityItemsConfig: updateCommunityItemConfig,
     onCommunityItemsUpload: uploadCommunityItemsNow,
     onCommunityItemsDownload: downloadCommunityItemsNow,
+    onCommunityMobsUpload: uploadCommunityMobsNow,
+    onCommunityMobsDownload: downloadCommunityMobsNow,
+    onSelectPantheonDirectory: selectPantheonDirectory,
+    onDeployAtlasMods: deployAtlasRequiredMods,
     onRestart: () => shutdown(true)
   });
 
@@ -622,7 +781,8 @@ async function runApp(argv = process.argv) {
   if (entityScannerLogIngestor) console.log(`Entity scanner log enabled: ${entityScannerLogIngestor.status.path}`);
   if (lootLogIngestor) console.log(`Loot log enabled: ${lootLogIngestor.status.path}`);
   if (communityItemSync) console.log(`Community item sync enabled: ${communityItemSync.status.publicBaseUrl || 'upload only'}`);
-  return { config, store, addonLogIngestor, entityScannerLogIngestor, lootLogIngestor, communityItemSync, server };
+  if (communityMobSync) console.log(`Community mob sync enabled: ${communityMobSync.status.publicBaseUrl || 'upload only'}`);
+  return { config, store, addonLogIngestor, entityScannerLogIngestor, lootLogIngestor, communityItemSync, communityMobSync, server };
 }
 
 if (require.main === module) {

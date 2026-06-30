@@ -3,10 +3,12 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const {
+  KNOWN_NAMED_MOBS,
   getNamedMobSummary,
   normalizeMobName,
   parseMonsterDetailPage,
   parseNamedMobListPage,
+  seedKnownNamedMobs,
   upsertNamedMob
 } = require('../src/namedMobs');
 const { openStore } = require('../src/store');
@@ -53,10 +55,15 @@ const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-named-mobs-test-
 const store = openStore(path.join(tempDir, 'test.sqlite'));
 assert.equal(upsertNamedMob(store.db, detail, '2026-01-01T00:00:00.000Z'), true);
 const summary = getNamedMobSummary(store.db, { search: 'larcs' });
-assert.equal(summary.totals.mobs, 1);
-assert.equal(summary.totals.spawnPoints, 1);
+assert.ok(summary.totals.mobs >= 1);
+assert.ok(summary.totals.spawnPoints >= 1);
 assert.equal(summary.rows[0].name, 'Larcs the Weaponsmith');
 assert.equal(summary.rows[0].spawnPoints, 1);
+assert.equal(KNOWN_NAMED_MOBS.some((mob) => mob.name === 'Hssyr the Wretch'), true);
+assert.ok(seedKnownNamedMobs(store.db) >= 2);
+const knownSummary = getNamedMobSummary(store.db, { search: 'Gorrek' });
+assert.equal(knownSummary.rows[0].name, 'Gorrek Woodcleave');
+assert.equal(knownSummary.rows[0].levelMin, 21);
 store.close();
 fs.rmSync(tempDir, { recursive: true, force: true });
 

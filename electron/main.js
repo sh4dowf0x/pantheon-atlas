@@ -5,6 +5,7 @@ const net = require('node:net');
 const path = require('node:path');
 const { app, BrowserWindow, Menu, ipcMain, shell, dialog } = require('electron');
 const packageJson = require('../package.json');
+const { deployAtlasMods, REQUIRED_MOD_ASSETS } = require('../src/modDeploy');
 
 let runtime = null;
 let mainWindow = null;
@@ -99,14 +100,39 @@ function releaseAssetForPlatform(release) {
     || null;
 }
 
+async function latestUpdateInfo() {
+  if (process.env.PANTHEON_ATLAS_DISABLE_UPDATE_CHECK === '1') {
+    return {
+      checked: false,
+      available: false,
+      currentVersion: packageJson.version,
+      error: 'Update checks are disabled.'
+    };
+  }
+  const release = await fetchJson(UPDATE_API_URL);
+  const latestVersion = String(release.tag_name || '').replace(/^v/i, '');
+  const asset = releaseAssetForPlatform(release);
+  const releaseUrl = release.html_url || `https://github.com/${UPDATE_REPO}/releases/latest`;
+  const downloadUrl = asset?.browser_download_url || releaseUrl;
+  return {
+    checked: true,
+    available: Boolean(latestVersion && compareVersions(latestVersion, packageJson.version) > 0),
+    currentVersion: packageJson.version,
+    latestVersion: latestVersion || null,
+    releaseUrl,
+    downloadUrl,
+    assetName: asset?.name || null,
+    publishedAt: release.published_at || null
+  };
+}
+
 async function checkForUpdates({ manual = false } = {}) {
   if (updateCheckInFlight || process.env.PANTHEON_ATLAS_DISABLE_UPDATE_CHECK === '1') return null;
   if (process.env.PANTHEON_ATLAS_SMOKE_TEST === '1' && !manual) return null;
   updateCheckInFlight = true;
   try {
-    const release = await fetchJson(UPDATE_API_URL);
-    const latestVersion = String(release.tag_name || '').replace(/^v/i, '');
-    if (!latestVersion || compareVersions(latestVersion, packageJson.version) <= 0) {
+    const info = await latestUpdateInfo();
+    if (!info.available) {
       if (manual) {
         await dialog.showMessageBox(mainWindow, {
           type: 'info',
@@ -118,20 +144,17 @@ async function checkForUpdates({ manual = false } = {}) {
       return null;
     }
 
-    const asset = releaseAssetForPlatform(release);
-    const releaseUrl = release.html_url || `https://github.com/${UPDATE_REPO}/releases/latest`;
-    const downloadUrl = asset?.browser_download_url || releaseUrl;
     const result = await dialog.showMessageBox(mainWindow, {
       type: 'info',
       title: 'Pantheon Atlas Update Available',
-      message: `Pantheon Atlas ${latestVersion} is available.`,
+      message: `Pantheon Atlas ${info.latestVersion} is available.`,
       detail: `You are running ${packageJson.version}. Download the latest build from GitHub, then close Atlas and run the new installer or portable EXE.`,
       buttons: ['Download', 'Later'],
       defaultId: 0,
       cancelId: 1
     });
-    if (result.response === 0) await shell.openExternal(downloadUrl);
-    return { latestVersion, downloadUrl };
+    if (result.response === 0) await shell.openExternal(info.downloadUrl);
+    return info;
   } catch (error) {
     console.error(`Update check failed: ${error.message}`);
     if (manual) {
@@ -221,6 +244,18 @@ function persistSelectedCharacter(configPath, character) {
   }
 }
 
+function persistPantheonGamePath(configPath, gamePath) {
+  const safePath = String(gamePath || '').trim();
+  if (!safePath) return;
+  try {
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    config.pantheon = { ...(config.pantheon || {}), gamePath: safePath };
+    fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  } catch (error) {
+    console.error(`Could not save Pantheon game folder: ${error.message}`);
+  }
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -241,13 +276,12 @@ function pickCharacter(configPath) {
   const { discoverCharacterLogChoices, sanitizeCharacterName } = require('../src/app');
   const config = readConfig(configPath);
   const choices = discoverCharacterLogChoices(config);
-  if (!choices.length) return Promise.resolve(sanitizeCharacterName(config.pantheon?.localPlayerName));
 
   const configured = sanitizeCharacterName(config.pantheon?.localPlayerName);
   return new Promise((resolve) => {
     const picker = new BrowserWindow({
-      width: 560,
-      height: Math.min(720, 210 + choices.length * 76),
+      width: 720,
+      height: Math.min(860, 480 + Math.max(choices.length, 1) * 76),
       resizable: false,
       title: 'Choose Character',
       backgroundColor: '#101418',
@@ -258,18 +292,78 @@ function pickCharacter(configPath) {
     });
 
     let settled = false;
+    let latestDownloadUrl = null;
+    const handleCharacterSelected = (_event, character) => settle(character);
+    const handleContinue = () => settle(configured || choices[0]?.name || null);
+    const handleUpdateCheck = async () => {
+      if (process.env.PANTHEON_ATLAS_SMOKE_TEST === '1') {
+        return {
+          checked: false,
+          available: false,
+          currentVersion: packageJson.version,
+          error: 'Skipped during smoke test.'
+        };
+      }
+      try {
+        const info = await latestUpdateInfo();
+        latestDownloadUrl = info.downloadUrl || null;
+        return info;
+      } catch (error) {
+        console.error(`Update check failed: ${error.message}`);
+        return {
+          checked: false,
+          available: false,
+          currentVersion: packageJson.version,
+          error: error.message
+        };
+      }
+    };
+    const handleOpenUpdate = async () => {
+      const url = latestDownloadUrl || `https://github.com/${UPDATE_REPO}/releases/latest`;
+      await shell.openExternal(url);
+      return { ok: true };
+    };
+    const handleSelectModsFolder = async () => {
+      const result = await dialog.showOpenDialog(picker, {
+        title: 'Choose Pantheon Game Folder',
+        defaultPath: config.pantheon?.gamePath || undefined,
+        properties: ['openDirectory']
+      });
+      if (result.canceled || !result.filePaths?.length) return { canceled: true, pantheonDir: config.pantheon?.gamePath || null };
+      const pantheonDir = result.filePaths[0];
+      persistPantheonGamePath(configPath, pantheonDir);
+      config.pantheon = { ...(config.pantheon || {}), gamePath: pantheonDir };
+      return { canceled: false, pantheonDir };
+    };
+    const handleDeployMods = async (_event, pantheonDir) => {
+      const wantedPath = String(pantheonDir || config.pantheon?.gamePath || '').trim();
+      const result = await deployAtlasMods({ pantheonDir: wantedPath });
+      persistPantheonGamePath(configPath, result.pantheonDir);
+      config.pantheon = { ...(config.pantheon || {}), gamePath: result.pantheonDir };
+      return result;
+    };
     const settle = (character) => {
       if (settled) return;
       settled = true;
-      ipcMain.removeAllListeners('atlas-character-selected');
+      ipcMain.removeListener('atlas-character-selected', handleCharacterSelected);
+      ipcMain.removeListener('atlas-character-continue', handleContinue);
+      ipcMain.removeHandler('atlas-update-check');
+      ipcMain.removeHandler('atlas-open-update');
+      ipcMain.removeHandler('atlas-mods-select-folder');
+      ipcMain.removeHandler('atlas-mods-deploy');
       if (!picker.isDestroyed()) picker.close();
       resolve(sanitizeCharacterName(character) || configured || choices[0]?.name || null);
     };
 
-    ipcMain.once('atlas-character-selected', (_event, character) => settle(character));
+    ipcMain.on('atlas-character-selected', handleCharacterSelected);
+    ipcMain.on('atlas-character-continue', handleContinue);
+    ipcMain.handle('atlas-update-check', handleUpdateCheck);
+    ipcMain.handle('atlas-open-update', handleOpenUpdate);
+    ipcMain.handle('atlas-mods-select-folder', handleSelectModsFolder);
+    ipcMain.handle('atlas-mods-deploy', handleDeployMods);
     picker.on('closed', () => settle(configured || choices[0]?.name || null));
 
-    const rows = choices.map((choice, index) => {
+    const rows = choices.length ? choices.map((choice, index) => {
       const parts = [
         choice.combat ? 'combat' : null,
         choice.entity ? 'entities' : null
@@ -283,7 +377,9 @@ function pickCharacter(configPath) {
           <span>${escapeHtml(parts)} · ${ageSeconds}s ago</span>
         </button>
       `;
-    }).join('');
+    }).join('') : '<div class="empty">No Pantheon log files found yet. Deploy the Atlas mods, then start or restart Pantheon.</div>';
+    const requiredModsLabel = REQUIRED_MOD_ASSETS.map((name) => name.replace(/^Pantheon|Mod\.zip$/g, '')).join(', ');
+    const savedGamePath = escapeHtml(config.pantheon?.gamePath || '');
 
     const html = `
       <!doctype html>
@@ -309,9 +405,112 @@ function pickCharacter(configPath) {
               color: #9fb0bd;
               line-height: 1.4;
             }
+            .top {
+              display: grid;
+              grid-template-columns: 1fr auto;
+              gap: 14px;
+              align-items: start;
+            }
+            .update {
+              min-width: 210px;
+              padding: 12px;
+              border: 1px solid #2b3a42;
+              border-radius: 8px;
+              background: #151d23;
+            }
+            .update-title {
+              display: block;
+              margin-bottom: 5px;
+              color: #eef3f7;
+              font-size: 13px;
+              font-weight: 700;
+            }
+            .update-status {
+              min-height: 34px;
+              margin-bottom: 10px;
+              color: #9fb0bd;
+              font-size: 12px;
+              line-height: 1.35;
+            }
+            .update button {
+              width: 100%;
+              padding: 9px 10px;
+              border: 1px solid #426477;
+              border-radius: 7px;
+              background: #24475a;
+              color: #dff5ff;
+              font-weight: 700;
+              cursor: pointer;
+            }
+            .update button:disabled {
+              border-color: #2b3a42;
+              background: #182128;
+              color: #6f808a;
+              cursor: default;
+            }
             .list {
               display: grid;
               gap: 10px;
+            }
+            .setup {
+              display: grid;
+              gap: 12px;
+              margin: 16px 0;
+              padding: 14px;
+              border: 1px solid #2b3a42;
+              border-radius: 8px;
+              background: #151d23;
+            }
+            .setup-head {
+              display: flex;
+              justify-content: space-between;
+              gap: 12px;
+              align-items: center;
+            }
+            .setup-head strong {
+              color: #eef3f7;
+            }
+            .setup-head span,
+            .setup-status,
+            .empty {
+              color: #9fb0bd;
+              font-size: 13px;
+              line-height: 1.4;
+            }
+            .setup-row {
+              display: grid;
+              grid-template-columns: 1fr auto auto;
+              gap: 8px;
+            }
+            .setup-row input {
+              min-width: 0;
+              padding: 10px 11px;
+              border: 1px solid #2b3a42;
+              border-radius: 7px;
+              background: #101820;
+              color: #eef3f7;
+            }
+            .action,
+            .setup-row button {
+              padding: 10px 12px;
+              border: 1px solid #426477;
+              border-radius: 7px;
+              background: #24475a;
+              color: #dff5ff;
+              font-weight: 700;
+              cursor: pointer;
+            }
+            .action.secondary {
+              border-color: #2b3a42;
+              background: #182128;
+              color: #c8d5dd;
+            }
+            .action:disabled,
+            .setup-row button:disabled {
+              border-color: #2b3a42;
+              background: #182128;
+              color: #6f808a;
+              cursor: default;
             }
             .choice {
               width: 100%;
@@ -351,15 +550,105 @@ function pickCharacter(configPath) {
           </style>
         </head>
         <body>
-          <h1>Choose Character</h1>
-          <p>Pantheon Atlas will tail the active combat and entity logs for this character.</p>
+          <div class="top">
+            <div>
+              <h1>Choose Character</h1>
+              <p>Pantheon Atlas will tail the active combat and entity logs for this character.</p>
+            </div>
+            <section class="update" aria-label="Atlas update">
+              <span class="update-title">Atlas Update</span>
+              <div id="update-status" class="update-status">Checking GitHub...</div>
+              <button id="update-button" type="button" disabled>Update Atlas</button>
+            </section>
+          </div>
+          <section class="setup" aria-label="Atlas mods">
+            <div class="setup-head">
+              <div>
+                <strong>Atlas Mods</strong>
+                <span>Required: ${escapeHtml(requiredModsLabel)}</span>
+              </div>
+              <button id="continue-button" class="action secondary" type="button">Continue</button>
+            </div>
+            <div class="setup-row">
+              <input id="mods-folder" type="text" placeholder="Pantheon game folder" value="${savedGamePath}">
+              <button id="mods-browse" type="button">Browse</button>
+              <button id="mods-deploy" type="button">Deploy Mods</button>
+            </div>
+            <div id="mods-status" class="setup-status">Installs CombatData, EntityScanner, and LootData from GitHub.</div>
+          </section>
           <div class="list">${rows}</div>
           <script>
             const { ipcRenderer } = require('electron');
+            const updateStatus = document.querySelector('#update-status');
+            const updateButton = document.querySelector('#update-button');
+            const continueButton = document.querySelector('#continue-button');
+            const modsFolder = document.querySelector('#mods-folder');
+            const modsBrowse = document.querySelector('#mods-browse');
+            const modsDeploy = document.querySelector('#mods-deploy');
+            const modsStatus = document.querySelector('#mods-status');
             document.querySelectorAll('.choice').forEach((button) => {
               button.addEventListener('click', () => {
                 ipcRenderer.send('atlas-character-selected', button.dataset.character);
               });
+            });
+            continueButton.addEventListener('click', () => {
+              ipcRenderer.send('atlas-character-continue');
+            });
+            modsBrowse.addEventListener('click', async () => {
+              modsBrowse.disabled = true;
+              modsStatus.textContent = 'Choosing Pantheon folder...';
+              try {
+                const result = await ipcRenderer.invoke('atlas-mods-select-folder');
+                if (result.pantheonDir) {
+                  modsFolder.value = result.pantheonDir;
+                  modsStatus.textContent = 'Pantheon folder selected.';
+                } else {
+                  modsStatus.textContent = 'Folder selection canceled.';
+                }
+              } catch (error) {
+                modsStatus.textContent = error.message || 'Could not choose folder.';
+              } finally {
+                modsBrowse.disabled = false;
+              }
+            });
+            modsDeploy.addEventListener('click', async () => {
+              const pantheonDir = modsFolder.value.trim();
+              if (!pantheonDir) {
+                modsStatus.textContent = 'Choose the Pantheon game folder first.';
+                return;
+              }
+              modsDeploy.disabled = true;
+              modsBrowse.disabled = true;
+              modsStatus.textContent = 'Downloading and deploying Atlas mods...';
+              try {
+                const result = await ipcRenderer.invoke('atlas-mods-deploy', pantheonDir);
+                modsFolder.value = result.pantheonDir || pantheonDir;
+                modsStatus.textContent = 'Installed ' + (result.releaseTag || 'latest') + ': ' + (result.installed || []).join(', ') + '.';
+              } catch (error) {
+                modsStatus.textContent = error.message || 'Mod deployment failed.';
+              } finally {
+                modsDeploy.disabled = false;
+                modsBrowse.disabled = false;
+              }
+            });
+            updateButton.addEventListener('click', async () => {
+              updateButton.disabled = true;
+              updateStatus.textContent = 'Opening GitHub...';
+              await ipcRenderer.invoke('atlas-open-update');
+              updateStatus.textContent = 'Download opened in your browser.';
+              updateButton.disabled = false;
+            });
+            ipcRenderer.invoke('atlas-update-check').then((info) => {
+              if (info.available) {
+                updateStatus.textContent = 'Version ' + info.latestVersion + ' is available. Current: ' + info.currentVersion + '.';
+                updateButton.disabled = false;
+                return;
+              }
+              updateStatus.textContent = info.error || ('Up to date: ' + info.currentVersion + '.');
+              updateButton.disabled = true;
+            }).catch((error) => {
+              updateStatus.textContent = error.message || 'Could not check for updates.';
+              updateButton.disabled = true;
             });
           </script>
         </body>
@@ -389,9 +678,6 @@ function createWindow(dashboardUrl) {
   });
 
   mainWindow.loadURL(dashboardUrl);
-  mainWindow.webContents.once('did-finish-load', () => {
-    setTimeout(() => checkForUpdates().catch(() => {}), 2500);
-  });
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -414,6 +700,16 @@ async function cleanupRuntime() {
   }
 }
 
+async function selectPantheonDirectory(options = {}) {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Choose Pantheon Game Folder',
+    defaultPath: options.defaultPath || undefined,
+    properties: ['openDirectory']
+  });
+  if (result.canceled || !result.filePaths?.length) return { canceled: true, pantheonDir: null };
+  return { canceled: false, pantheonDir: result.filePaths[0] };
+}
+
 async function startAtlas() {
   startingAtlas = true;
   app.setName('Pantheon Atlas');
@@ -429,7 +725,9 @@ async function startAtlas() {
   persistSelectedCharacter(configPath, character);
   const argv = ['electron', 'pantheon-atlas', '--config', configPath, '--port', String(port)];
   if (character) argv.push('--character', character);
-  runtime = await runApp(argv);
+  runtime = await runApp(argv, {
+    onSelectPantheonDirectory: selectPantheonDirectory
+  });
 
   const dashboardUrl = `http://127.0.0.1:${port}/`;
   await waitForHttp(dashboardUrl);
@@ -442,14 +740,16 @@ async function startAtlas() {
   startingAtlas = false;
 }
 
-Menu.setApplicationMenu(Menu.buildFromTemplate([{
-  label: 'Pantheon Atlas',
-  submenu: [
-    { label: 'Check for Updates', click: () => checkForUpdates({ manual: true }).catch(() => {}) },
-    { type: 'separator' },
-    { role: 'quit' }
-  ]
-}]));
+if (Menu?.setApplicationMenu && Menu?.buildFromTemplate) {
+  Menu.setApplicationMenu(Menu.buildFromTemplate([{
+    label: 'Pantheon Atlas',
+    submenu: [
+      { label: 'Check for Updates', click: () => checkForUpdates({ manual: true }).catch(() => {}) },
+      { type: 'separator' },
+      { role: 'quit' }
+    ]
+  }]));
+}
 
 app.whenReady()
   .then(startAtlas)

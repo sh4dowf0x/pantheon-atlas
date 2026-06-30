@@ -5,6 +5,10 @@ function eventKey(parts) {
   return crypto.createHash('sha1').update(parts.filter((part) => part !== undefined && part !== null).join('|')).digest('hex');
 }
 
+const DEFAULT_ENTITY_REPEAT_MS = 60_000;
+const DEFAULT_ENTITY_MOVE_DISTANCE = 4;
+const DEFAULT_HEALTH_REPEAT_MS = 15_000;
+
 function normalizeTimestamp(value) {
   const parsed = Date.parse(value || '');
   return Number.isNaN(parsed) ? new Date().toISOString() : new Date(parsed).toISOString();
@@ -13,6 +17,36 @@ function normalizeTimestamp(value) {
 function asNumber(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function scannerRawText(record) {
+  const compact = {};
+  for (const key of [
+    'Name',
+    'Title',
+    'Class',
+    'Race',
+    'Profession',
+    'Kind',
+    'EntityType',
+    'RuntimeType',
+    'Role',
+    'Tier',
+    'Level',
+    'NetworkId',
+    'CharacterId',
+    'HealthCurrent',
+    'HealthMax',
+    'HealthPercent',
+    'DistanceFromLocal',
+    'sourceCharacterName',
+    'sourceCharacterId',
+    'SourceCharacterName',
+    'SourceCharacterId'
+  ]) {
+    if (record[key] !== undefined && record[key] !== null && record[key] !== '') compact[key] = record[key];
+  }
+  return `[EntityScanner] ${JSON.stringify(compact)}`;
 }
 
 function scannerEntityId(record) {
@@ -26,6 +60,11 @@ function scannerEntityId(record) {
 function localCharacterEntityId(record) {
   const characterId = asNumber(record.CharacterId);
   return characterId !== null && characterId >= 0 ? `scanner:character:${Math.trunc(characterId)}` : scannerEntityId(record);
+}
+
+function isKnownQuestGroundSpawn(record) {
+  const name = String(record.Name || '').trim();
+  return /\bcorroded key\b/i.test(name);
 }
 
 function normalizeEntityKind(record) {
@@ -44,6 +83,7 @@ function normalizeEntityKind(record) {
   if (metadata.includes('resource') || metadata.includes('harvest')) return 'resource';
   if (entityType === 'groundspawn' || runtimeType.includes('networkworlditem')) {
     if (/\b(chest|lootcratelockbox|lootcrate_lockbox|lockbox|lock_box)\b/.test(metadata)) return 'chest';
+    if (isKnownQuestGroundSpawn(record)) return 'quest';
     if (/\b(quest|treasure)\b/.test(metadata)) return 'quest';
   }
   return 'mob';
@@ -58,7 +98,7 @@ function localPlayerEvent(record, observedAt) {
     target: [record.Race, record.Class].filter(Boolean).join(' ') || null,
     ability: Number.isFinite(Number(record.Level)) ? `Level ${Number(record.Level)}` : null,
     damageType: localCharacterEntityId(record),
-    rawText: `[EntityScanner] ${JSON.stringify(record)}`,
+    rawText: scannerRawText(record),
     eventKey: eventKey([observedAt, 'entity_scanner_local_player', record.CharacterId, record.Name])
   };
 }
@@ -147,7 +187,7 @@ function entityPositionEvent(record, observedAt, entityId) {
     x,
     y,
     z,
-    rawText: `[EntityScanner] ${JSON.stringify(record)}`,
+    rawText: scannerRawText(record),
     eventKey: eventKey([observedAt, 'entity_scanner_entity', entityId, x, y, z, record.HealthCurrent, record.EventType])
   };
 }
@@ -180,7 +220,7 @@ function removedEvent(record, observedAt, entityId) {
     x: asNumber(record.X),
     y: asNumber(record.Y),
     z: asNumber(record.Z),
-    rawText: `[EntityScanner] ${JSON.stringify(record)}`,
+    rawText: scannerRawText(record),
     eventKey: eventKey([observedAt, 'entity_scanner_removed', entityId])
   };
 }
@@ -250,6 +290,7 @@ class EntityScannerLogIngestor {
     this.pending = '';
     this.timer = null;
     this.running = false;
+    this.lastStoredBySignature = new Map();
     this.status = {
       enabled: Boolean(this.config.enabled),
       path: this.config.liveFile || null,
@@ -261,12 +302,75 @@ class EntityScannerLogIngestor {
     };
   }
 
+  shouldStoreEvent(event) {
+    if (!event?.eventType || !event.damageType) return true;
+    if (event.eventType === 'position_update' || event.eventType === 'target_selection' || event.eventType === 'entity_removed') return true;
+    const observedMs = Date.parse(event.observedAt || '');
+    if (!Number.isFinite(observedMs)) return true;
+    if (event.eventType === 'health_update') {
+      const key = `${event.eventType}|${event.damageType}`;
+      const previous = this.lastStoredBySignature.get(key);
+      const currentHealth = Number(event.amount);
+      const maxHealth = Number(event.ability);
+      if (
+        previous
+        && previous.amount === currentHealth
+        && previous.maxHealth === maxHealth
+        && observedMs - previous.observedMs < Number(this.config.healthRepeatMs || DEFAULT_HEALTH_REPEAT_MS)
+      ) {
+        return false;
+      }
+      this.lastStoredBySignature.set(key, { observedMs, amount: currentHealth, maxHealth });
+      return true;
+    }
+    if (event.eventType !== 'world_entity' && event.eventType !== 'harvest_node' && event.eventType !== 'player_position') return true;
+    const key = `${event.eventType}|${event.damageType}`;
+    const previous = this.lastStoredBySignature.get(key);
+    const x = Number(event.x);
+    const y = Number(event.y);
+    const z = Number(event.z);
+    const repeatMs = Number(this.config.entityRepeatMs || DEFAULT_ENTITY_REPEAT_MS);
+    const moveDistance = Number(this.config.entityMoveDistance || DEFAULT_ENTITY_MOVE_DISTANCE);
+    const moved = previous
+      ? Math.hypot(x - previous.x, y - previous.y, z - previous.z) >= moveDistance
+      : true;
+    const changed = previous
+      ? previous.target !== event.target
+        || previous.ability !== event.ability
+        || previous.amount !== event.amount
+      : true;
+    if (previous && !moved && !changed && observedMs - previous.observedMs < repeatMs) return false;
+    this.lastStoredBySignature.set(key, {
+      observedMs,
+      x,
+      y,
+      z,
+      target: event.target || null,
+      ability: event.ability || null,
+      amount: event.amount ?? null
+    });
+    return true;
+  }
+
   start() {
     if (this.running || !this.config.enabled || !this.config.liveFile) return;
     this.running = true;
+    if (this.config.readExistingOnStart !== true) this.seekToEnd();
     this.readAvailable();
     const everyMs = Math.max(250, Number(this.config.pollEveryMs || 1000));
     this.timer = setInterval(() => this.readAvailable(), everyMs);
+  }
+
+  seekToEnd() {
+    try {
+      const stat = fs.statSync(this.config.liveFile);
+      this.offset = stat.size;
+      this.pending = '';
+      this.status.lastReadAt = new Date().toISOString();
+      this.status.lastError = null;
+    } catch (error) {
+      if (error.code !== 'ENOENT') this.status.lastError = error.message;
+    }
   }
 
   stop() {
@@ -310,7 +414,7 @@ class EntityScannerLogIngestor {
       this.status.linesRead += 1;
       for (const event of parseEntityScannerLine(line)) {
         if (typeof this.options.onEvent === 'function') this.options.onEvent(event);
-        if (this.store.insertEvent(event)) {
+        if (this.shouldStoreEvent(event) && this.store.insertEvent(event)) {
           this.status.eventsStored += 1;
           this.status.lastEventAt = event.observedAt;
         }

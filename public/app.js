@@ -17,6 +17,17 @@ const state = {
   lootSlot: '',
   lootMaxLevel: '',
   lootSort: 'lastSeen',
+  mobData: null,
+  selectedMobName: null,
+  mobSearch: '',
+  mobLocation: '',
+  mobNamed: '',
+  mobMinLevel: '',
+  mobMaxLevel: '',
+  mobRefreshFetchedAt: 0,
+  mobRefreshKey: '',
+  mobRefreshInFlight: false,
+  mobFilterTimer: null,
   healingSelectedSource: null,
   healingSelectedAbilityKey: null,
   petAssignments: loadPetAssignments(),
@@ -58,6 +69,7 @@ const state = {
   respawnDefaultMinutes: Number(window.localStorage.getItem('pantheonParser2.respawnDefaultMinutes') || 15) || 15,
   respawnManualTimers: loadRespawnManualTimers(),
   respawnDismissedKeys: loadRespawnDismissedKeys(),
+  respawnSeenTimerIds: new Set(loadRespawnDismissedKeys()),
   respawnDeaths: [],
   respawnDeathsFetchedAt: 0,
   respawnDeathsRefreshInFlight: false,
@@ -79,7 +91,7 @@ const state = {
 
 const tileImageCache = new Map();
 const RADAR_RANGE_UNITS = 66;
-const MAP_ENTITY_REFRESH_MS = 1_000;
+const MAP_ENTITY_REFRESH_MS = 3_000;
 
 const els = {
   status: document.querySelector('#status'),
@@ -142,9 +154,25 @@ const els = {
   lootLevelFilter: document.querySelector('#loot-level-filter'),
   lootSortFilter: document.querySelector('#loot-sort-filter'),
   lootList: document.querySelector('#loot-list'),
+  lootSyncItems: document.querySelector('#loot-sync-items'),
   lootDetailTitle: document.querySelector('#loot-detail-title'),
   lootDetailSubtitle: document.querySelector('#loot-detail-subtitle'),
   lootDetail: document.querySelector('#loot-detail'),
+  mobCount: document.querySelector('#mob-count'),
+  mobAbilityCount: document.querySelector('#mob-ability-count'),
+  mobDropCount: document.querySelector('#mob-drop-count'),
+  mobKillCount: document.querySelector('#mob-kill-count'),
+  mobUpdated: document.querySelector('#mob-updated'),
+  mobSearch: document.querySelector('#mob-search'),
+  mobLocationFilter: document.querySelector('#mob-location-filter'),
+  mobNamedFilter: document.querySelector('#mob-named-filter'),
+  mobMinLevel: document.querySelector('#mob-min-level'),
+  mobMaxLevel: document.querySelector('#mob-max-level'),
+  mobList: document.querySelector('#mob-list'),
+  mobSyncMobs: document.querySelector('#mob-sync-mobs'),
+  mobDetailTitle: document.querySelector('#mob-detail-title'),
+  mobDetailSubtitle: document.querySelector('#mob-detail-subtitle'),
+  mobDetail: document.querySelector('#mob-detail'),
   mapActor: document.querySelector('#map-actor'),
   mapX: document.querySelector('#map-x'),
   mapY: document.querySelector('#map-y'),
@@ -200,12 +228,20 @@ const els = {
   communitySyncDownload: document.querySelector('#community-sync-download'),
   communitySyncUpload: document.querySelector('#community-sync-upload'),
   communitySyncMode: document.querySelector('#community-sync-mode'),
+  communitySyncUploadEndpoint: document.querySelector('#community-sync-upload-endpoint'),
+  communitySyncDownloadMinutes: document.querySelector('#community-sync-download-minutes'),
+  communitySyncUploadMinutes: document.querySelector('#community-sync-upload-minutes'),
   communitySyncAccessKey: document.querySelector('#community-sync-access-key'),
   communitySyncSecretKey: document.querySelector('#community-sync-secret-key'),
   communitySyncSaveKeys: document.querySelector('#community-sync-save-keys'),
   communitySyncCheck: document.querySelector('#community-sync-check'),
   communitySyncNow: document.querySelector('#community-sync-now'),
   communitySyncDetails: document.querySelector('#community-sync-details'),
+  atlasModsState: document.querySelector('#atlas-mods-state'),
+  atlasModsPantheonDir: document.querySelector('#atlas-mods-pantheon-dir'),
+  atlasModsBrowse: document.querySelector('#atlas-mods-browse'),
+  atlasModsDeploy: document.querySelector('#atlas-mods-deploy'),
+  atlasModsDetails: document.querySelector('#atlas-mods-details'),
   unresolvedCount: document.querySelector('#unresolved-count'),
   unresolvedActors: document.querySelector('#unresolved-actors'),
   events: document.querySelector('#events'),
@@ -262,6 +298,20 @@ function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[ch]);
+}
+
+function itemArtSrc(item) {
+  const url = String(item?.artUrl || '').trim();
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url) && !url.startsWith('https://shalazam.info/')) return url;
+  return `/api/item-art?url=${encodeURIComponent(url)}`;
+}
+
+function itemIconMarkup(item, className = 'loot-row-icon') {
+  const src = itemArtSrc(item);
+  const fallback = escapeHtml(String(item?.iconKey || item?.itemType || '?').slice(0, 2).toUpperCase());
+  if (!src) return `<span class="${className}">${fallback}</span>`;
+  return `<span class="${className} has-art"><img src="${escapeHtml(src)}" alt="" loading="lazy" onerror="this.remove(); this.parentElement.classList.remove('has-art'); this.parentElement.textContent='${fallback}';"></span>`;
 }
 
 function loadPetAssignments() {
@@ -397,7 +447,7 @@ function renderRecentEventList(container, rows, emptyText) {
 
 async function fetchJson(url) {
   const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) throw new Error(await responseErrorMessage(res));
   return res.json();
 }
 
@@ -408,8 +458,20 @@ async function postJson(url, body) {
     body: JSON.stringify(body),
     cache: 'no-store'
   });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) throw new Error(await responseErrorMessage(res));
   return res.json();
+}
+
+async function responseErrorMessage(res) {
+  const fallback = `${res.status} ${res.statusText}`.trim();
+  const text = await res.text().catch(() => '');
+  if (!text) return fallback;
+  try {
+    const parsed = JSON.parse(text);
+    return parsed.error ? `${fallback}: ${compactText(parsed.error, 240)}` : fallback;
+  } catch {
+    return `${fallback}: ${compactText(text, 240)}`;
+  }
 }
 
 function displayParams(extra = {}) {
@@ -809,26 +871,47 @@ function renderNetworkRows(container, rows, mapper) {
   container.replaceChildren(...rows.map(mapper));
 }
 
+function compactText(value, maxLength = 240) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 1)}...`;
+}
+
 function renderCommunitySync(status = {}) {
   if (!els.communitySyncDetails) return;
   const enabled = Boolean(status.enabled);
   const downloadEnabled = status.downloadEnabled !== false;
   const uploadEnabled = Boolean(status.uploadEnabled);
-  els.communitySyncState.textContent = status.lastError || (enabled ? uploadEnabled ? 'Ready' : downloadEnabled ? 'Download only' : 'Enabled' : 'Disabled');
+  const downloadEveryMinutes = Math.max(1, Number(status.downloadEveryMinutes || 60) || 60);
+  const uploadEveryMinutes = Math.max(1, Number(status.uploadEveryMinutes || 30) || 30);
+  const lastError = compactText(status.lastError || '');
+  els.communitySyncState.textContent = lastError || (enabled ? uploadEnabled ? 'Ready' : downloadEnabled ? 'Download only' : 'Enabled' : 'Disabled');
   els.communitySyncEnabled.checked = enabled;
   if (els.communitySyncDownload) els.communitySyncDownload.checked = downloadEnabled;
   if (els.communitySyncDownload) els.communitySyncDownload.disabled = !enabled;
   els.communitySyncUpload.checked = uploadEnabled;
   els.communitySyncUpload.disabled = !enabled;
   els.communitySyncMode.disabled = !enabled;
-  if (els.communitySyncAccessKey) els.communitySyncAccessKey.disabled = !enabled || els.communitySyncMode.value !== 'r2';
-  if (els.communitySyncSecretKey) els.communitySyncSecretKey.disabled = !enabled || els.communitySyncMode.value !== 'r2';
-  if (els.communitySyncSaveKeys) els.communitySyncSaveKeys.disabled = !enabled || els.communitySyncMode.value !== 'r2';
-  if (els.communitySyncCheck) els.communitySyncCheck.disabled = !enabled || !downloadEnabled;
-  els.communitySyncNow.disabled = !enabled || !uploadEnabled;
   if (status.uploadMode && [...els.communitySyncMode.options].some((option) => option.value === status.uploadMode)) {
     els.communitySyncMode.value = status.uploadMode;
   }
+  if (els.communitySyncDownloadMinutes) {
+    els.communitySyncDownloadMinutes.value = String(downloadEveryMinutes);
+    els.communitySyncDownloadMinutes.disabled = !enabled || !downloadEnabled;
+  }
+  if (els.communitySyncUploadMinutes) {
+    els.communitySyncUploadMinutes.value = String(uploadEveryMinutes);
+    els.communitySyncUploadMinutes.disabled = !enabled || !uploadEnabled;
+  }
+  if (els.communitySyncAccessKey) els.communitySyncAccessKey.disabled = !enabled || els.communitySyncMode.value !== 'r2';
+  if (els.communitySyncSecretKey) els.communitySyncSecretKey.disabled = !enabled || els.communitySyncMode.value !== 'r2';
+  if (els.communitySyncSaveKeys) els.communitySyncSaveKeys.disabled = !enabled || els.communitySyncMode.value !== 'r2';
+  if (els.communitySyncUploadEndpoint) {
+    els.communitySyncUploadEndpoint.value = status.uploadEndpoint || '';
+    els.communitySyncUploadEndpoint.disabled = !enabled || els.communitySyncMode.value !== 'worker';
+  }
+  if (els.communitySyncCheck) els.communitySyncCheck.disabled = !enabled || !downloadEnabled;
+  els.communitySyncNow.disabled = !enabled || !uploadEnabled || (els.communitySyncMode.value === 'worker' && !String(status.uploadEndpoint || '').trim());
   els.communitySyncDetails.textContent = JSON.stringify({
     mode: status.uploadMode || 'worker',
     bucket: status.bucket || null,
@@ -838,13 +921,28 @@ function renderCommunitySync(status = {}) {
     uploadEndpoint: status.uploadEndpoint || null,
     publicBaseUrl: status.publicBaseUrl || null,
     manifestUrl: status.manifestUrl || null,
+    downloadEveryMinutes,
+    uploadEveryMinutes,
     lastCheckedAt: status.lastCheckedAt || null,
     lastDownloadedAt: status.lastDownloadedAt || null,
     lastUploadedAt: status.lastUploadedAt || null,
     lastDownloadedCount: status.lastDownloadedCount || 0,
     lastChangedCount: status.lastChangedCount || 0,
     lastUploadedCount: status.lastUploadedCount || 0,
-    lastError: status.lastError || null
+    lastError: lastError || null
+  }, null, 2);
+}
+
+function renderAtlasMods(status = {}) {
+  if (!els.atlasModsDetails) return;
+  const pantheonDir = status.pantheonDir || '';
+  if (els.atlasModsPantheonDir) els.atlasModsPantheonDir.value = pantheonDir;
+  if (els.atlasModsState) els.atlasModsState.textContent = pantheonDir ? 'Ready' : 'Choose folder';
+  if (els.atlasModsDeploy) els.atlasModsDeploy.disabled = !pantheonDir;
+  els.atlasModsDetails.textContent = JSON.stringify({
+    requiredMods: ['PantheonCombatDataMod.zip', 'PantheonEntityScannerMod.zip', 'PantheonLootDataMod.zip'],
+    pantheonDir: pantheonDir || null,
+    latestRelease: 'https://github.com/sh4dowf0x/pantheon-mods/releases/latest'
   }, null, 2);
 }
 
@@ -1431,6 +1529,41 @@ function respawnDeathKey(death, campKey = '') {
   ].join('|');
 }
 
+function respawnDeathObservedMs(death) {
+  const value = Date.parse(death?.observedAt || '');
+  return Number.isFinite(value) ? value : 0;
+}
+
+function respawnNamedDeathGroupKey(death) {
+  const name = normalizePriorityName(death?.namedMob?.name || death?.target || '');
+  if (!name) return '';
+  const entityId = String(death?.entityId || '').trim();
+  if (entityId) return `named|${name}|${entityId}`;
+  const observedAtMs = respawnDeathObservedMs(death);
+  const bucket = observedAtMs ? Math.floor(observedAtMs / (10 * 60_000)) : 'unknown';
+  return `named|${name}|${bucket}`;
+}
+
+function respawnPreferredDeath(current, candidate) {
+  if (!current) return candidate;
+  if (candidate?.eventType === 'kill' && current?.eventType !== 'kill') return candidate;
+  if (candidate?.eventType !== 'kill' && current?.eventType === 'kill') return current;
+  return respawnDeathObservedMs(candidate) < respawnDeathObservedMs(current) ? candidate : current;
+}
+
+function latestRespawnDeathForCamp(camp, deaths) {
+  const groups = new Map();
+  for (const death of deaths || []) {
+    if (!respawnCampMatchesDeath(camp, death)) continue;
+    const target = normalizePriorityName(death?.target || '');
+    const entityId = String(death?.entityId || '').trim();
+    const groupKey = entityId ? `${target}|${entityId}` : `${target}|${Math.floor(respawnDeathObservedMs(death) / (10 * 60_000))}`;
+    groups.set(groupKey, respawnPreferredDeath(groups.get(groupKey), death));
+  }
+  return [...groups.values()]
+    .sort((left, right) => respawnDeathObservedMs(right) - respawnDeathObservedMs(left))[0] || null;
+}
+
 function respawnCampMatchesDeath(camp, death) {
   const target = normalizePriorityName(death?.target || '');
   if (!target) return false;
@@ -1444,16 +1577,16 @@ function respawnCampMatchesDeath(camp, death) {
 function buildRespawnTimers() {
   const nowMs = Date.now();
   const timers = [];
+  const timerDeathKeys = new Set();
   const camps = respawnCampEntries();
   for (const camp of camps) {
-    const death = (state.respawnDeaths || [])
-      .filter((row) => respawnCampMatchesDeath(camp, row))
-      .sort((left, right) => Date.parse(right.observedAt || 0) - Date.parse(left.observedAt || 0))[0];
+    const death = latestRespawnDeathForCamp(camp, state.respawnDeaths || []);
     if (!death) continue;
     const key = respawnDeathKey(death, camp.key);
     if (state.respawnDismissedKeys.has(key)) continue;
     const killedAtMs = Date.parse(death.observedAt || '');
     if (!Number.isFinite(killedAtMs)) continue;
+    if (death.namedMob?.name) timerDeathKeys.add(respawnNamedDeathGroupKey(death));
     const respawnAtMs = killedAtMs + camp.respawnMinutes * 60_000;
     timers.push({
       id: key,
@@ -1465,6 +1598,38 @@ function buildRespawnTimers() {
       remainingMs: respawnAtMs - nowMs,
       manual: false,
       source: camp.source,
+      eventType: death.eventType
+    });
+  }
+
+  const namedDeaths = new Map();
+  for (const death of state.respawnDeaths || []) {
+    if (!death?.namedMob?.name) continue;
+    const deathKey = respawnNamedDeathGroupKey(death);
+    if (!deathKey) continue;
+    namedDeaths.set(deathKey, respawnPreferredDeath(namedDeaths.get(deathKey), death));
+  }
+  for (const [deathKey, death] of namedDeaths) {
+    if (timerDeathKeys.has(deathKey)) continue;
+    const killedAtMs = Date.parse(death.observedAt || '');
+    if (!Number.isFinite(killedAtMs)) continue;
+    const id = deathKey;
+    if (state.respawnDismissedKeys.has(id)) continue;
+    timerDeathKeys.add(deathKey);
+    const minutes = respawnDefaultMinutes();
+    const respawnAtMs = killedAtMs + minutes * 60_000;
+    timers.push({
+      id,
+      campName: death.namedMob.name,
+      sourceName: death.target,
+      killedAt: death.observedAt,
+      respawnMinutes: minutes,
+      respawnAt: new Date(respawnAtMs).toISOString(),
+      remainingMs: respawnAtMs - nowMs,
+      manual: false,
+      namedAuto: true,
+      namedLocation: death.namedMob.location || death.namedMob.zone || null,
+      source: 'named',
       eventType: death.eventType
     });
   }
@@ -2031,6 +2196,27 @@ function playPriorityAlert() {
   });
 }
 
+function playNamedRespawnAlert() {
+  if (!state.prioritySound) return;
+  const audio = ensurePriorityAudio();
+  if (!audio) return;
+  const now = audio.currentTime;
+  const gain = audio.createGain();
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.14, now + 0.03);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.9);
+  gain.connect(audio.destination);
+
+  [392, 523.25, 659.25, 523.25].forEach((frequency, index) => {
+    const osc = audio.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(frequency, now + index * 0.16);
+    osc.connect(gain);
+    osc.start(now + index * 0.16);
+    osc.stop(now + index * 0.16 + 0.18);
+  });
+}
+
 function renderPriorityMobs(entities) {
   if (!els.priorityActiveList || !els.priorityCount) return;
   const entries = priorityEntries();
@@ -2082,10 +2268,13 @@ function renderPriorityMobs(entities) {
 function renderRespawnTimers() {
   if (!els.respawnTimerList || !els.respawnCount) return;
   const timers = buildRespawnTimers();
+  const newNamedTimers = timers.filter((timer) => timer.namedAuto && !state.respawnSeenTimerIds.has(timer.id));
+  for (const timer of timers) state.respawnSeenTimerIds.add(timer.id);
+  if (newNamedTimers.length) playNamedRespawnAlert();
   const dueCount = timers.filter((timer) => timer.remainingMs <= 0).length;
   els.respawnCount.textContent = `${timers.length} timer${timers.length === 1 ? '' : 's'}${dueCount ? ` / ${dueCount} due` : ''}`;
   if (!timers.length) {
-    els.respawnTimerList.innerHTML = '<div class="empty">No watched deaths yet.</div>';
+    els.respawnTimerList.innerHTML = '<div class="empty">No named deaths yet.</div>';
     return;
   }
   els.respawnTimerList.replaceChildren(...timers.slice(0, 32).map((timer) => {
@@ -2094,7 +2283,9 @@ function renderRespawnTimers() {
     row.className = `respawn-row${due ? ' due' : ''}`;
     const sourceLabel = timer.manual
       ? 'manual'
-      : `${timer.eventType === 'health_update' ? 'health' : 'kill'} / ${timer.source}`;
+      : timer.namedAuto
+        ? `${timer.eventType === 'health_update' ? 'health' : 'kill'} / named`
+        : `${timer.eventType === 'health_update' ? 'health' : 'kill'} / ${timer.source}`;
     row.innerHTML = `
       <div class="respawn-row-main">
         <strong>${escapeHtml(timer.campName || timer.sourceName || 'Unknown camp')}</strong>
@@ -2102,7 +2293,7 @@ function renderRespawnTimers() {
       </div>
       <div class="respawn-progress"><span style="width: ${Math.max(0, Math.min(100, 100 - (Math.max(0, timer.remainingMs) / (timer.respawnMinutes * 60_000)) * 100)).toFixed(1)}%"></span></div>
       <div class="respawn-meta">
-        <span>${escapeHtml(timer.sourceName || timer.campName || '')}</span>
+        <span>${escapeHtml(timer.namedLocation || timer.sourceName || timer.campName || '')}</span>
         <span>${formatTime(timer.killedAt)} -> ${formatTime(timer.respawnAt)}</span>
       </div>
       <div class="respawn-meta">
@@ -2415,7 +2606,7 @@ async function refreshMapEntities(force = false) {
   if (!force && Date.now() - Number(state.mapEntitiesFetchedAt || 0) < MAP_ENTITY_REFRESH_MS) return;
   state.mapEntityRefreshInFlight = true;
   try {
-    const entityParams = recentMapParams({ limit: '500' }, 10 * 60_000);
+    const entityParams = recentMapParams({ limit: '300' }, 3 * 60_000);
     const entityData = await fetchJson(`/api/map/entities?${entityParams}`);
     state.mapEntities = entityData.rows || [];
     state.mapEntitiesFetchedAt = Date.now();
@@ -2721,7 +2912,8 @@ function updateLootFilterOptions(data) {
   if (els.lootSlotFilter) els.lootSlotFilter.value = [...els.lootSlotFilter.options].some((option) => option.value === slotValue) ? slotValue : '';
 }
 
-function renderLootList(rows = []) {
+function renderLootList(rows = [], options = {}) {
+  const previousScrollTop = options.preserveScroll ? els.lootList.scrollTop : 0;
   if (!rows.length) {
     state.selectedLootItemId = null;
     els.lootList.innerHTML = '<div class="empty">No matching items.</div>';
@@ -2740,7 +2932,7 @@ function renderLootList(rows = []) {
     const typeLine = [row.rarity, row.equipSlotName || row.displaySubtype || row.itemType, row.requiredLevel ? `Req ${row.requiredLevel}` : ''].filter(Boolean).join(' / ');
     const sideLabel = row.itemType === 'Weapon' && row.weaponDps ? `${formatRate(row.weaponDps)} DPS` : row.armorValue ? `${formatNumber(row.armorValue)} Armor` : flags || 'seen';
     button.innerHTML = `
-      <span class="loot-row-icon">${escapeHtml(String(row.iconKey || row.itemType || '?').slice(0, 2).toUpperCase())}</span>
+      ${itemIconMarkup(row)}
       <span class="loot-row-main">
         <strong>${escapeHtml(row.name)}</strong>
         <span>${escapeHtml(typeLine)}</span>
@@ -2752,11 +2944,12 @@ function renderLootList(rows = []) {
     `;
     button.addEventListener('click', async () => {
       state.selectedLootItemId = row.itemId;
-      renderLootList(state.lootData?.rows || []);
+      renderLootList(state.lootData?.rows || [], { preserveScroll: true });
       await loadLootDetail(row.itemId);
     });
     return button;
   }));
+  if (options.preserveScroll) els.lootList.scrollTop = previousScrollTop;
 }
 
 function itemStatLines(item) {
@@ -2887,11 +3080,27 @@ function renderLootDetail(item) {
     ].filter(Boolean);
     return bits.join(' / ');
   };
+  const dropSourceMetaLine = (source) => {
+    const coords = [source.x, source.y, source.z].every((value) => Number.isFinite(Number(value)))
+      ? `${formatNumber(source.x)}, ${formatNumber(source.z)}, ${formatNumber(source.y)}`
+      : '';
+    const bits = [
+      source.level ? `L${formatNumber(source.level)}` : null,
+      source.zoneName || source.mapKey || null,
+      coords,
+      Array.isArray(source.methods) && source.methods.length ? source.methods.map((method) => method.replace(/_/g, ' ')).join(', ') : null,
+      Array.isArray(source.confidences) && source.confidences.length ? `${source.confidences.join('/')} confidence` : null
+    ].filter(Boolean);
+    return bits.join(' / ');
+  };
   els.lootDetail.innerHTML = `
     <article class="item-tooltip ${rarityClass(item.rarity)}">
       <header class="item-tooltip-head">
-        <h3>${escapeHtml(item.name)}</h3>
-        <span>${escapeHtml(headerMeta)}</span>
+        ${itemIconMarkup(item, 'item-tooltip-art')}
+        <div>
+          <h3>${escapeHtml(item.name)}</h3>
+          <span>${escapeHtml(headerMeta)}</span>
+        </div>
       </header>
       <div class="item-flags">${flags.map((flag) => `<span>${escapeHtml(flag)}</span>`).join('')}</div>
       <div class="item-type-line">${escapeHtml(typeLine)}</div>
@@ -2906,6 +3115,23 @@ function renderLootDetail(item) {
         <span>Weight: ${item.weight ?? '-'}</span>
       </footer>
     </article>
+    <section class="loot-detail-section">
+      <h3>Dropped By</h3>
+      <div class="loot-drop-list">
+        ${(item.dropSources || []).length ? item.dropSources.map((source) => `
+          <div class="loot-drop-line">
+            <div>
+              <strong>${escapeHtml(source.name || 'Unknown source')}</strong>
+              <span>${escapeHtml(dropSourceMetaLine(source))}</span>
+            </div>
+            <div>
+              <strong>${formatNumber(source.count || 0)}</strong>
+              <span>${formatTime(source.lastSeen)}</span>
+            </div>
+          </div>
+        `).join('') : '<div class="empty">No drop sources recorded.</div>'}
+      </div>
+    </section>
     <section class="loot-detail-section">
       <h3>Inventory Instances</h3>
       <div class="loot-instance-list">
@@ -2960,6 +3186,210 @@ async function refreshLoot() {
   els.status.textContent = data.totals.lastEventAt ? `Loot data through ${formatTime(data.totals.lastEventAt)}` : 'Waiting for loot data';
 }
 
+function formatLevelRange(row) {
+  if (row.levelMin !== null && row.levelMax !== null && row.levelMin !== undefined && row.levelMax !== undefined) {
+    return Number(row.levelMin) === Number(row.levelMax) ? `Level ${formatNumber(row.levelMin)}` : `Levels ${formatNumber(row.levelMin)}-${formatNumber(row.levelMax)}`;
+  }
+  return 'Level unknown';
+}
+
+function renderMobMetrics(data) {
+  const totals = data.totals || {};
+  els.mobCount.textContent = formatNumber(totals.mobs || 0);
+  els.mobAbilityCount.textContent = formatNumber(totals.withAbilities || 0);
+  els.mobDropCount.textContent = formatNumber(totals.withDrops || 0);
+  els.mobKillCount.textContent = formatNumber(totals.kills || 0);
+  els.mobUpdated.textContent = totals.lastSeenAt ? `Updated ${formatTime(totals.lastSeenAt)}` : 'Waiting';
+}
+
+function updateMobFilterOptions(data) {
+  if (!els.mobLocationFilter) return;
+  const locationValue = els.mobLocationFilter.value;
+  els.mobLocationFilter.replaceChildren(
+    new Option('All locations', ''),
+    ...(data.locations || []).map((row) => new Option(`${row.name} (${row.count})`, row.name))
+  );
+  els.mobLocationFilter.value = [...els.mobLocationFilter.options].some((option) => option.value === locationValue) ? locationValue : '';
+  state.mobLocation = els.mobLocationFilter.value;
+}
+
+function renderMobList(rows = [], options = {}) {
+  const previousScrollTop = options.preserveScroll ? els.mobList.scrollTop : 0;
+  if (!rows.length) {
+    state.selectedMobName = null;
+    els.mobList.innerHTML = '<div class="empty">No matching mobs.</div>';
+    renderMobDetail(null);
+    return;
+  }
+  if (!state.selectedMobName || !rows.some((row) => row.name === state.selectedMobName)) {
+    state.selectedMobName = rows[0].name;
+  }
+  const table = document.createElement('table');
+  table.className = 'mob-table';
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Location</th>
+        <th>Named</th>
+        <th>Level</th>
+        <th class="number">Drops Recorded</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  `;
+  const body = table.querySelector('tbody');
+  body.replaceChildren(...rows.map((row) => {
+    const tr = document.createElement('tr');
+    tr.className = `mob-table-row${row.name === state.selectedMobName ? ' selected' : ''}`;
+    tr.dataset.mobName = row.name;
+    tr.tabIndex = 0;
+    const meta = [formatLevelRange(row), row.className || 'Class unknown', row.race].filter(Boolean).join(' / ');
+    const location = row.zoneName || row.location || '-';
+    tr.innerHTML = `
+      <td>
+        <span class="mob-table-main">
+        <strong>${escapeHtml(row.name)}</strong>
+        <span>${escapeHtml(meta)}</span>
+      </span>
+      </td>
+      <td>${escapeHtml(location)}</td>
+      <td>${row.named ? '<span class="pill success">Named</span>' : '<span class="pill muted">No</span>'}</td>
+      <td>${escapeHtml(formatLevelRange(row).replace(/^Levels? /, ''))}</td>
+      <td class="number">${formatNumber(row.dropEventCount || 0)}</td>
+    `;
+    const selectRow = async () => {
+      state.selectedMobName = row.name;
+      renderMobList(state.mobData?.rows || [], { preserveScroll: true });
+      await loadMobDetail(row.name);
+    };
+    tr.addEventListener('click', selectRow);
+    tr.addEventListener('keydown', async (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      await selectRow();
+    });
+    return tr;
+  }));
+  els.mobList.replaceChildren(table);
+  if (options.preserveScroll) els.mobList.scrollTop = previousScrollTop;
+}
+
+function renderMobDetail(mob) {
+  if (!mob) {
+    els.mobDetailTitle.textContent = 'Mob Detail';
+    els.mobDetailSubtitle.textContent = 'Select a mob';
+    els.mobDetail.innerHTML = '<div class="empty">No mob selected.</div>';
+    return;
+  }
+  els.mobDetailTitle.textContent = mob.name;
+  els.mobDetailSubtitle.textContent = [formatLevelRange(mob), mob.className || 'Class unknown'].filter(Boolean).join(' / ');
+  const location = mob.lastLocation
+    ? `X ${formatCoord(mob.lastLocation.x)} / Y ${formatCoord(mob.lastLocation.y)} / Z ${formatCoord(mob.lastLocation.z)}`
+    : 'No location recorded';
+  els.mobDetail.innerHTML = `
+    <section class="mob-detail-card">
+      <div><span>Named</span><strong>${mob.named ? 'Yes' : 'No'}</strong></div>
+      <div><span>Zone</span><strong>${escapeHtml(mob.zoneName || mob.location || '-')}</strong></div>
+      <div><span>Class</span><strong>${escapeHtml(mob.className || '-')}</strong></div>
+      <div><span>Race</span><strong>${escapeHtml(mob.race || '-')}</strong></div>
+      <div><span>Seen</span><strong>${formatNumber(mob.seenCount || 0)}</strong></div>
+      <div><span>Kills</span><strong>${formatNumber(mob.killCount || 0)}</strong></div>
+      <div><span>Damage Out</span><strong>${formatNumber(mob.damageDone || 0)}</strong></div>
+      <div><span>Damage In</span><strong>${formatNumber(mob.damageTaken || 0)}</strong></div>
+    </section>
+    <section class="loot-detail-section">
+      <h3>Last Location</h3>
+      <div class="mob-location-line">${escapeHtml(location)}${mob.lastLocation?.observedAt ? ` / ${formatTime(mob.lastLocation.observedAt)}` : ''}</div>
+    </section>
+    <section class="loot-detail-section">
+      <h3>Abilities Used</h3>
+      <div class="loot-instance-list">
+        ${(mob.abilities || []).length ? mob.abilities.map((ability) => `
+          <div class="mob-ability-line">
+            <span>${escapeHtml(ability.ability)}</span>
+            <span>${formatNumber(ability.count || 0)} uses</span>
+            <span>${formatNumber(ability.totalDamage || 0)}</span>
+          </div>
+        `).join('') : '<div class="empty">No offensive abilities recorded.</div>'}
+      </div>
+    </section>
+    <section class="loot-detail-section">
+      <h3>Drops</h3>
+      <div class="loot-instance-list">
+        ${(mob.drops || []).length ? mob.drops.map((drop) => `
+          <div class="mob-drop-line ${rarityClass(drop.rarity)}">
+            <span>${escapeHtml(drop.name)}</span>
+            <span>${escapeHtml(drop.rarity || '-')}</span>
+            <span>${formatNumber(drop.count || 0)} seen</span>
+          </div>
+        `).join('') : '<div class="empty">No drops linked yet.</div>'}
+      </div>
+    </section>
+  `;
+}
+
+async function loadMobDetail(name = state.selectedMobName) {
+  if (!name) {
+    renderMobDetail(null);
+    return;
+  }
+  const detail = await fetchJson(`/api/mobs/detail?name=${encodeURIComponent(name)}`);
+  renderMobDetail(detail);
+}
+
+function mobFilterKey() {
+  return JSON.stringify({
+    search: state.mobSearch,
+    location: state.mobLocation,
+    named: state.mobNamed,
+    minLevel: state.mobMinLevel,
+    maxLevel: state.mobMaxLevel
+  });
+}
+
+function scheduleMobRefresh(delayMs = 250) {
+  window.clearTimeout(state.mobFilterTimer);
+  state.mobFilterTimer = window.setTimeout(() => {
+    if (state.tab === 'mobs') refreshMobs({ force: true }).catch((error) => {
+      els.status.textContent = `Mob database error: ${error.message}`;
+      els.status.classList.add('error');
+    });
+  }, delayMs);
+}
+
+async function refreshMobs(options = {}) {
+  if (state.mobRefreshInFlight) return;
+  const key = mobFilterKey();
+  const now = Date.now();
+  if (!options.force && state.mobData && key === state.mobRefreshKey && now - Number(state.mobRefreshFetchedAt || 0) < 15_000) {
+    renderMobMetrics(state.mobData);
+    updateMobFilterOptions(state.mobData);
+    renderMobList(state.mobData.rows || [], { preserveScroll: true });
+    return;
+  }
+  state.mobRefreshInFlight = true;
+  const params = new URLSearchParams({ limit: '300' });
+  if (state.mobSearch) params.set('search', state.mobSearch);
+  if (state.mobLocation) params.set('location', state.mobLocation);
+  if (state.mobNamed) params.set('named', state.mobNamed);
+  if (state.mobMinLevel) params.set('minLevel', state.mobMinLevel);
+  if (state.mobMaxLevel) params.set('maxLevel', state.mobMaxLevel);
+  try {
+    const data = await fetchJson(`/api/mobs/summary?${params}`);
+    state.mobData = data;
+    state.mobRefreshKey = key;
+    state.mobRefreshFetchedAt = Date.now();
+    renderMobMetrics(data);
+    updateMobFilterOptions(data);
+    renderMobList(data.rows || [], { preserveScroll: true });
+    await loadMobDetail();
+    els.status.textContent = data.totals.lastSeenAt ? `Mob data through ${formatTime(data.totals.lastSeenAt)}` : 'Waiting for mob data';
+  } finally {
+    state.mobRefreshInFlight = false;
+  }
+}
+
 async function refreshDiagnostics() {
   const params = displayParams();
   const unresolvedParams = displayParams({ window: String(state.windowSeconds) });
@@ -2972,9 +3402,14 @@ async function refreshDiagnostics() {
   els.eventCount.textContent = formatNumber(totals.events);
   els.actorCount.textContent = formatNumber(totals.actors);
   els.lastEvent.textContent = formatTime(totals.lastEventAt);
-  renderCommunitySync(status.communityItems || {});
   renderNetworkRows(els.events, recent.events || [], (row) => rowCard(`#${row.id} ${row.eventType}`, `${formatTime(row.observedAt)} ${row.amount || ''}`, row.rawText));
   renderUnresolvedActors(unresolved.rows || []);
+}
+
+async function refreshSettings() {
+  const status = await fetchJson(`/api/status?${displayParams()}`);
+  renderCommunitySync(status.communityItems || {});
+  renderAtlasMods({ pantheonDir: status.pantheon?.gamePath || '' });
 }
 
 async function refresh() {
@@ -2993,8 +3428,10 @@ async function refresh() {
         else if (state.tab === 'xp') await refreshXp();
         else if (state.tab === 'encounters') await refreshEncounters();
         else if (state.tab === 'loot') await refreshLoot();
+        else if (state.tab === 'mobs') await refreshMobs();
         else if (state.tab === 'map') await refreshMap();
-        else await refreshDiagnostics();
+        else if (state.tab === 'diagnostics') await refreshDiagnostics();
+        else if (state.tab === 'settings') await refreshSettings();
       } catch (error) {
         els.status.textContent = `Dashboard error: ${error.message}`;
         els.status.classList.add('error');
@@ -3088,20 +3525,80 @@ if (els.lootSortFilter) {
   });
 }
 
+if (els.mobSearch) {
+  els.mobSearch.addEventListener('input', () => {
+    state.mobSearch = els.mobSearch.value.trim();
+    state.selectedMobName = null;
+    scheduleMobRefresh();
+  });
+}
+if (els.mobLocationFilter) {
+  els.mobLocationFilter.addEventListener('change', async () => {
+    state.mobLocation = els.mobLocationFilter.value;
+    state.selectedMobName = null;
+    if (state.tab === 'mobs') await refreshMobs({ force: true });
+  });
+}
+if (els.mobNamedFilter) {
+  els.mobNamedFilter.addEventListener('change', async () => {
+    state.mobNamed = els.mobNamedFilter.value;
+    state.selectedMobName = null;
+    if (state.tab === 'mobs') await refreshMobs({ force: true });
+  });
+}
+if (els.mobMinLevel) {
+  els.mobMinLevel.addEventListener('input', () => {
+    state.mobMinLevel = els.mobMinLevel.value.trim();
+    state.selectedMobName = null;
+    scheduleMobRefresh();
+  });
+}
+if (els.mobMaxLevel) {
+  els.mobMaxLevel.addEventListener('input', () => {
+    state.mobMaxLevel = els.mobMaxLevel.value.trim();
+    state.selectedMobName = null;
+    scheduleMobRefresh();
+  });
+}
+
 async function updateCommunitySyncConfig(patch) {
   const result = await postJson('/api/community-items/config', patch);
   renderCommunitySync(result.status || {});
 }
 
+async function syncCommunityItemsNow({ refreshLootView = false } = {}) {
+  const download = await postJson('/api/community-items/download', {});
+  renderCommunitySync(download.status || {});
+  const upload = await postJson('/api/community-items/upload', { full: true });
+  renderCommunitySync(upload.status || {});
+  if (refreshLootView && state.tab === 'loot') await refreshLoot();
+  return { download, upload };
+}
+
+async function syncCommunityMobsNow({ refreshMobView = false } = {}) {
+  const download = await postJson('/api/community-mobs/download', {});
+  const upload = await postJson('/api/community-mobs/upload', { full: true });
+  if (refreshMobView && state.tab === 'mobs') await refreshMobs({ force: true });
+  return { download, upload };
+}
+
+function communitySyncConfigPatch(extra = {}) {
+  return {
+    enabled: els.communitySyncEnabled.checked,
+    downloadEnabled: els.communitySyncDownload ? els.communitySyncDownload.checked : true,
+    uploadEnabled: els.communitySyncUpload.checked,
+    uploadMode: els.communitySyncMode.value,
+    uploadEndpoint: els.communitySyncUploadEndpoint ? els.communitySyncUploadEndpoint.value.trim() : '',
+    downloadEveryMinutes: Number(els.communitySyncDownloadMinutes?.value || 60) || 60,
+    uploadEveryMinutes: Number(els.communitySyncUploadMinutes?.value || 30) || 30,
+    ...extra
+  };
+}
+
 if (els.communitySyncEnabled) {
   els.communitySyncEnabled.addEventListener('change', async () => {
     try {
-      await updateCommunitySyncConfig({
-        enabled: els.communitySyncEnabled.checked,
-        downloadEnabled: els.communitySyncDownload ? els.communitySyncDownload.checked : true,
-        uploadEnabled: els.communitySyncUpload.checked,
-        uploadMode: els.communitySyncMode.value
-      });
+      await updateCommunitySyncConfig(communitySyncConfigPatch());
     } catch (error) {
       els.status.textContent = `Community sync error: ${error.message}`;
       els.status.classList.add('error');
@@ -3112,12 +3609,7 @@ if (els.communitySyncEnabled) {
 if (els.communitySyncDownload) {
   els.communitySyncDownload.addEventListener('change', async () => {
     try {
-      await updateCommunitySyncConfig({
-        enabled: els.communitySyncEnabled.checked,
-        downloadEnabled: els.communitySyncDownload.checked,
-        uploadEnabled: els.communitySyncUpload.checked,
-        uploadMode: els.communitySyncMode.value
-      });
+      await updateCommunitySyncConfig(communitySyncConfigPatch());
     } catch (error) {
       els.status.textContent = `Community sync error: ${error.message}`;
       els.status.classList.add('error');
@@ -3128,12 +3620,7 @@ if (els.communitySyncDownload) {
 if (els.communitySyncUpload) {
   els.communitySyncUpload.addEventListener('change', async () => {
     try {
-      await updateCommunitySyncConfig({
-        enabled: els.communitySyncEnabled.checked,
-        downloadEnabled: els.communitySyncDownload ? els.communitySyncDownload.checked : true,
-        uploadEnabled: els.communitySyncUpload.checked,
-        uploadMode: els.communitySyncMode.value
-      });
+      await updateCommunitySyncConfig(communitySyncConfigPatch());
     } catch (error) {
       els.status.textContent = `Community sync error: ${error.message}`;
       els.status.classList.add('error');
@@ -3144,12 +3631,18 @@ if (els.communitySyncUpload) {
 if (els.communitySyncMode) {
   els.communitySyncMode.addEventListener('change', async () => {
     try {
-      await updateCommunitySyncConfig({
-        enabled: els.communitySyncEnabled.checked,
-        downloadEnabled: els.communitySyncDownload ? els.communitySyncDownload.checked : true,
-        uploadEnabled: els.communitySyncUpload.checked,
-        uploadMode: els.communitySyncMode.value
-      });
+      await updateCommunitySyncConfig(communitySyncConfigPatch());
+    } catch (error) {
+      els.status.textContent = `Community sync error: ${error.message}`;
+      els.status.classList.add('error');
+    }
+  });
+}
+
+for (const input of [els.communitySyncUploadEndpoint, els.communitySyncDownloadMinutes, els.communitySyncUploadMinutes].filter(Boolean)) {
+  input.addEventListener('change', async () => {
+    try {
+      await updateCommunitySyncConfig(communitySyncConfigPatch());
     } catch (error) {
       els.status.textContent = `Community sync error: ${error.message}`;
       els.status.classList.add('error');
@@ -3163,13 +3656,9 @@ if (els.communitySyncSaveKeys) {
       const accessKeyId = els.communitySyncAccessKey.value.trim();
       const secretAccessKey = els.communitySyncSecretKey.value.trim();
       if (!accessKeyId || !secretAccessKey) throw new Error('Both R2 key fields are required.');
-      await updateCommunitySyncConfig({
-        enabled: els.communitySyncEnabled.checked,
-        downloadEnabled: els.communitySyncDownload ? els.communitySyncDownload.checked : true,
-        uploadEnabled: els.communitySyncUpload.checked,
-        uploadMode: els.communitySyncMode.value,
+      await updateCommunitySyncConfig(communitySyncConfigPatch({
         r2: { accessKeyId, secretAccessKey }
-      });
+      }));
       els.communitySyncAccessKey.value = '';
       els.communitySyncSecretKey.value = '';
       els.status.textContent = 'R2 keys saved locally.';
@@ -3185,9 +3674,7 @@ if (els.communitySyncCheck) {
   els.communitySyncCheck.addEventListener('click', async () => {
     try {
       els.communitySyncCheck.disabled = true;
-      const res = await fetch('/api/community-items/download', { method: 'POST', cache: 'no-store' });
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-      const result = await res.json();
+      const result = await postJson('/api/community-items/download', {});
       renderCommunitySync(result.status || {});
       els.status.textContent = `Community sync imported ${formatNumber(result.imported || 0)} item updates.`;
       els.status.classList.remove('error');
@@ -3205,16 +3692,102 @@ if (els.communitySyncNow) {
   els.communitySyncNow.addEventListener('click', async () => {
     try {
       els.communitySyncNow.disabled = true;
-      const res = await fetch('/api/community-items/upload', { method: 'POST', cache: 'no-store' });
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-      const result = await res.json();
+      const result = await postJson('/api/community-items/upload', { full: true });
       renderCommunitySync(result.status || {});
-      els.status.textContent = `Community sync uploaded ${formatNumber(result.uploaded || 0)} item changes.`;
+      els.status.textContent = `Community sync uploaded ${formatNumber(result.uploaded || 0)} local items.`;
     } catch (error) {
       els.status.textContent = `Community sync error: ${error.message}`;
       els.status.classList.add('error');
     } finally {
       els.communitySyncNow.disabled = !els.communitySyncEnabled.checked || !els.communitySyncUpload.checked;
+    }
+  });
+}
+
+if (els.atlasModsBrowse) {
+  els.atlasModsBrowse.addEventListener('click', async () => {
+    try {
+      els.atlasModsBrowse.disabled = true;
+      const result = await postJson('/api/mods/select-directory', {});
+      if (result.pantheonDir) {
+        renderAtlasMods({ pantheonDir: result.pantheonDir });
+        els.status.textContent = 'Pantheon folder selected.';
+        els.status.classList.remove('error');
+      }
+    } catch (error) {
+      els.status.textContent = `Atlas mods error: ${error.message}`;
+      els.status.classList.add('error');
+    } finally {
+      els.atlasModsBrowse.disabled = false;
+    }
+  });
+}
+
+if (els.atlasModsDeploy) {
+  els.atlasModsDeploy.addEventListener('click', async () => {
+    try {
+      const pantheonDir = els.atlasModsPantheonDir.value.trim();
+      if (!pantheonDir) throw new Error('Choose the Pantheon game folder first.');
+      els.atlasModsDeploy.disabled = true;
+      if (els.atlasModsState) els.atlasModsState.textContent = 'Deploying...';
+      els.status.textContent = 'Deploying Atlas mods...';
+      els.status.classList.remove('error');
+      const result = await postJson('/api/mods/deploy', { pantheonDir });
+      renderAtlasMods({ pantheonDir: result.pantheonDir || pantheonDir });
+      if (els.atlasModsState) els.atlasModsState.textContent = result.releaseTag ? `Installed ${result.releaseTag}` : 'Installed';
+      if (els.atlasModsDetails) els.atlasModsDetails.textContent = JSON.stringify({
+        pantheonDir: result.pantheonDir || pantheonDir,
+        releaseTag: result.releaseTag || null,
+        installed: result.installed || [],
+        installedAt: result.installedAt || null
+      }, null, 2);
+      els.status.textContent = `Atlas mods deployed: ${(result.installed || []).map((name) => name.replace(/^Pantheon|Mod\.zip$/g, '')).join(', ') || 'complete'}.`;
+    } catch (error) {
+      els.status.textContent = `Atlas mods error: ${error.message}`;
+      els.status.classList.add('error');
+      if (els.atlasModsState) els.atlasModsState.textContent = 'Deploy failed';
+    } finally {
+      els.atlasModsDeploy.disabled = !els.atlasModsPantheonDir.value.trim();
+    }
+  });
+}
+
+if (els.lootSyncItems) {
+  els.lootSyncItems.addEventListener('click', async () => {
+    try {
+      els.lootSyncItems.disabled = true;
+      els.status.textContent = 'Syncing item database...';
+      els.status.classList.remove('error');
+      const result = await syncCommunityItemsNow({ refreshLootView: true });
+      const imported = result.download.imported || 0;
+      const uploaded = result.upload.uploaded || 0;
+      els.status.textContent = `Item sync complete: imported ${formatNumber(imported)}, uploaded ${formatNumber(uploaded)}.`;
+      els.status.classList.remove('error');
+    } catch (error) {
+      els.status.textContent = `Item sync error: ${error.message}`;
+      els.status.classList.add('error');
+    } finally {
+      els.lootSyncItems.disabled = false;
+    }
+  });
+}
+
+if (els.mobSyncMobs) {
+  els.mobSyncMobs.addEventListener('click', async () => {
+    try {
+      els.mobSyncMobs.disabled = true;
+      els.status.textContent = 'Syncing mob database...';
+      els.status.classList.remove('error');
+      const result = await syncCommunityMobsNow({ refreshMobView: true });
+      const imported = result.download.imported || 0;
+      const uploaded = result.upload.uploaded || 0;
+      els.status.textContent = `Mob sync complete: imported ${formatNumber(imported)}, uploaded ${formatNumber(uploaded)}.`;
+      els.status.classList.remove('error');
+    } catch (error) {
+      els.status.textContent = `Mob sync error: ${error.message}`;
+      els.status.classList.add('error');
+    } finally {
+      els.mobSyncMobs.disabled = false;
     }
   });
 }

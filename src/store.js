@@ -2,6 +2,28 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
 const { abilityRegistryRecordFromEvent } = require('./abilityRegistry');
+const { seedKnownNamedMobs } = require('./namedMobs');
+
+function parseJsonObject(value) {
+  try {
+    const parsed = JSON.parse(value || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function mergeLootTemplateJson(incomingJson, existingJson) {
+  const incoming = parseJsonObject(incomingJson);
+  const existing = parseJsonObject(existingJson);
+  const preservedKeys = ['artUrl', 'artSource', 'iconUrl', 'communitySources'];
+  for (const key of preservedKeys) {
+    if ((incoming[key] === undefined || incoming[key] === null || incoming[key] === '') && existing[key] !== undefined && existing[key] !== null && existing[key] !== '') {
+      incoming[key] = existing[key];
+    }
+  }
+  return JSON.stringify(incoming);
+}
 
 function ensureSchema(db) {
   db.exec(`
@@ -301,6 +323,23 @@ function ensureSchema(db) {
 
     CREATE INDEX IF NOT EXISTS idx_named_camp_events_time
       ON named_camp_events(observed_at DESC, id DESC);
+
+    CREATE TABLE IF NOT EXISTS community_mobs (
+      key TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      normalized_name TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      source_install_id TEXT,
+      first_seen TEXT,
+      last_seen TEXT,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_community_mobs_name
+      ON community_mobs(normalized_name);
+
+    CREATE INDEX IF NOT EXISTS idx_community_mobs_seen
+      ON community_mobs(last_seen DESC, name);
   `);
 
   const columns = new Set(db.prepare('PRAGMA table_info(game_events)').all().map((column) => column.name));
@@ -317,6 +356,7 @@ function openStore(databasePath) {
   db.exec('PRAGMA busy_timeout = 3000');
   db.exec('PRAGMA journal_mode = WAL');
   ensureSchema(db);
+  seedKnownNamedMobs(db);
 
   const insertPacket = db.prepare(`
     INSERT INTO raw_packets (
@@ -407,6 +447,11 @@ function openStore(databasePath) {
     FROM ability_registry
     ORDER BY last_seen DESC, ability_name
     LIMIT ?
+  `);
+  const getLootItemTemplate = db.prepare(`
+    SELECT template_json AS templateJson
+    FROM loot_items
+    WHERE item_id = ?
   `);
   const upsertLootItem = db.prepare(`
     INSERT INTO loot_items (
@@ -579,6 +624,8 @@ function openStore(databasePath) {
     upsertLootItem(record) {
       if (!record?.itemId || !record?.name || !record?.templateJson) return false;
       const observedAt = record.observedAt || new Date().toISOString();
+      const existing = getLootItemTemplate.get(String(record.itemId));
+      const templateJson = mergeLootTemplateJson(record.templateJson, existing?.templateJson);
       const result = upsertLootItem.run(
         String(record.itemId),
         record.name,
@@ -594,7 +641,7 @@ function openStore(databasePath) {
         record.weight ?? null,
         record.flagsJson || null,
         record.statsJson || null,
-        record.templateJson,
+        templateJson,
         observedAt,
         observedAt
       );
@@ -648,10 +695,11 @@ function openStore(databasePath) {
       db.exec('PRAGMA wal_checkpoint(TRUNCATE)');
       return Number(packets.changes || 0);
     },
-    prune({ keepMinutes = 60, checkpoint = true } = {}) {
+    prune({ keepMinutes = 60, checkpoint = true, compact = false } = {}) {
       const minutes = Number.isFinite(Number(keepMinutes)) && Number(keepMinutes) > 0 ? Number(keepMinutes) : 60;
       const cutoff = new Date(Date.now() - minutes * 60_000).toISOString();
       const deleted = {};
+      const before = db.prepare('PRAGMA page_count').get()?.page_count || 0;
       db.exec('BEGIN IMMEDIATE');
       try {
         deleted.gameEvents = Number(db.prepare('DELETE FROM game_events WHERE observed_at < ?').run(cutoff).changes || 0);
@@ -664,7 +712,13 @@ function openStore(databasePath) {
         throw error;
       }
       if (checkpoint) db.exec('PRAGMA wal_checkpoint(TRUNCATE)');
-      return { cutoff, keepMinutes: minutes, deleted };
+      let compacted = false;
+      if (compact) {
+        db.exec('VACUUM');
+        compacted = true;
+      }
+      const after = db.prepare('PRAGMA page_count').get()?.page_count || 0;
+      return { cutoff, keepMinutes: minutes, deleted, compacted, pages: { before, after } };
     },
     close() {
       db.close();

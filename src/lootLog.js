@@ -1,5 +1,7 @@
 const fs = require('node:fs');
 const crypto = require('node:crypto');
+const path = require('node:path');
+const { cacheLocalItemArtSync } = require('./itemArt');
 
 function eventKey(parts) {
   return crypto.createHash('sha1').update(parts.filter((part) => part !== undefined && part !== null).join('|')).digest('hex');
@@ -121,13 +123,55 @@ function compactStats(item = {}, template = {}) {
   return Object.keys(stats).length ? stats : null;
 }
 
-function lootItemRecord(record, observedAt) {
+function resolveIconPath(iconFile, options = {}) {
+  const value = String(iconFile || '').trim();
+  if (!value) return null;
+  return path.isAbsolute(value) ? value : path.resolve(options.iconBaseDir || process.cwd(), value);
+}
+
+function exportedIconFields(record = {}, item = {}, template = {}, options = {}) {
+  const icon = record.icon && typeof record.icon === 'object' ? record.icon : item.Icon && typeof item.Icon === 'object' ? item.Icon : {};
+  const iconKey = firstDefined(icon.iconKey, icon.IconKey, template.iconKey, item.iconKey);
+  const iconFile = firstDefined(icon.iconFile, icon.IconFile, template.iconFile, item.iconFile);
+  const fields = {};
+  if (iconKey) fields.iconKey = String(iconKey);
+  if (iconFile) {
+    fields.iconFile = String(iconFile);
+    const sourcePath = resolveIconPath(iconFile, options);
+    try {
+      const cached = cacheLocalItemArtSync(sourcePath, {
+        iconKey,
+        itemId: item.ItemId ?? template.itemId ?? record.itemId,
+        itemName: item.Name || template.itemName || record.itemName
+      });
+      fields.artUrl = cached.artUrl;
+      fields.artSource = 'lootdata';
+      fields.exportedIconFile = path.basename(cached.filePath);
+    } catch (error) {
+      fields.iconExportError = error.message;
+    }
+  }
+  for (const [sourceKey, targetKey] of [
+    ['spriteName', 'iconSpriteName'],
+    ['textureName', 'iconTextureName'],
+    ['width', 'iconWidth'],
+    ['height', 'iconHeight'],
+    ['exportStatus', 'iconExportStatus']
+  ]) {
+    const value = icon[sourceKey] ?? icon[sourceKey[0].toUpperCase() + sourceKey.slice(1)];
+    if (value !== undefined && value !== null && value !== '') fields[targetKey] = value;
+  }
+  return fields;
+}
+
+function lootItemRecord(record, observedAt, options = {}) {
   const item = record.item || {};
   const template = item.Template || {};
   const itemId = item.ItemId ?? template.itemId ?? record.itemId;
   const name = item.Name || template.itemName || record.itemName;
   if (itemId === undefined || itemId === null || !name) return null;
   const stats = compactStats(item, template);
+  const iconFields = exportedIconFields(record, item, template, options);
   return {
     observedAt,
     itemId: String(itemId),
@@ -144,7 +188,7 @@ function lootItemRecord(record, observedAt) {
     weight: asNumber(template.itemWeight),
     flagsJson: JSON.stringify(normalizeFlags(template.itemFlags)),
     statsJson: stats ? JSON.stringify(stats) : null,
-    templateJson: JSON.stringify(template)
+    templateJson: JSON.stringify({ ...template, ...iconFields })
   };
 }
 
@@ -203,26 +247,26 @@ function lootEventRecord(record, observedAt) {
   };
 }
 
-function parseLootLogRecord(record) {
+function parseLootLogRecord(record, options = {}) {
   if (!record || typeof record !== 'object') return null;
   const observedAt = normalizeTimestamp(record.timestamp || record.TimestampUtc);
   return {
-    item: lootItemRecord(record, observedAt),
+    item: lootItemRecord(record, observedAt, options),
     instance: lootInstanceRecord(record, observedAt),
     event: lootEventRecord(record, observedAt)
   };
 }
 
-function parseLootLogLine(line) {
+function parseLootLogLine(line, options = {}) {
   const text = String(line || '').trim();
   if (!text) return null;
   try {
-    return parseLootLogRecord(JSON.parse(text));
+    return parseLootLogRecord(JSON.parse(text), options);
   } catch {
     const objectStart = text.indexOf('{');
     if (objectStart > 0) {
       try {
-        return parseLootLogRecord(JSON.parse(text.slice(objectStart)));
+        return parseLootLogRecord(JSON.parse(text.slice(objectStart)), options);
       } catch {
         return null;
       }
@@ -255,9 +299,22 @@ class LootLogIngestor {
   start() {
     if (this.running || !this.config.enabled || !this.config.liveFile) return;
     this.running = true;
+    if (this.config.readExistingOnStart !== true) this.seekToEnd();
     this.readAvailable();
     const everyMs = Math.max(250, Number(this.config.pollEveryMs || 1000));
     this.timer = setInterval(() => this.readAvailable(), everyMs);
+  }
+
+  seekToEnd() {
+    try {
+      const stat = fs.statSync(this.config.liveFile);
+      this.offset = stat.size;
+      this.pending = '';
+      this.status.lastReadAt = new Date().toISOString();
+      this.status.lastError = null;
+    } catch (error) {
+      if (error.code !== 'ENOENT') this.status.lastError = error.message;
+    }
   }
 
   stop() {
@@ -298,7 +355,7 @@ class LootLogIngestor {
     const lines = combined.split(/\r?\n/);
     this.pending = lines.pop() || '';
     for (const line of lines) {
-      const parsed = parseLootLogLine(line);
+      const parsed = parseLootLogLine(line, { iconBaseDir: path.dirname(this.config.liveFile) });
       if (!parsed) continue;
       this.status.linesRead += 1;
       if (parsed.item && this.store.upsertLootItem(parsed.item)) this.status.itemsStored += 1;
